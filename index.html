@@ -1,186 +1,76 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Verifiable Credential Framework</title>
+  <title>Blockchain Certificate Issuer & Verifier</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.6.2/dist/ethers.umd.min.js"></script>
   <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #121212;
-      color: #f0f0f0;
-      margin: 0;
-      padding: 20px;
-    }
-
-    .container {
-      max-width: 600px;
-      margin: auto;
-      background: #1e1e1e;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-    }
-
-    h1, h2 {
-      text-align: center;
-      color: #00ffd5;
-    }
-
-    input {
-      width: 100%;
-      padding: 10px;
-      margin: 8px 0;
-      border-radius: 6px;
-      border: none;
-      background: #2c2c2c;
-      color: #fff;
-    }
-
-    button {
-      background: #00ffd5;
-      color: #000;
-      padding: 10px;
-      border: none;
-      border-radius: 6px;
-      width: 100%;
-      cursor: pointer;
-      font-weight: bold;
-      margin-top: 5px;
-    }
-
-    button:hover {
-      background: #00bfa5;
-    }
-
-    .section {
-      margin-top: 30px;
-    }
-
-    pre {
-      background: #2b2b2b;
-      padding: 10px;
-      border-radius: 6px;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-    }
+    body { font-family: Arial; margin: 40px; background: #f2f2f2; }
+    .container { background: white; padding: 30px; border-radius: 10px; max-width: 600px; margin: auto; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    input[type="file"] { margin-top: 10px; }
+    button { padding: 10px 20px; margin-top: 15px; }
+    .hash, .result { margin-top: 20px; font-family: monospace; word-break: break-all; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🎓 Verifiable Credential Framework</h1>
+    <h2>🔐 Blockchain Certificate Issuer & Verifier</h2>
+    <input type="file" id="fileInput" />
+    <div class="hash" id="hashOutput"></div>
+    
+    <button onclick="issueCertificate()">✅ Issue Certificate</button>
+    <button onclick="verifyCertificate()">🔍 Verify Certificate</button>
 
-    <button onclick="connectWallet()">🔗 Connect Wallet</button>
-    <p id="walletAddress"></p>
-
-    <div class="section">
-      <h2>Issue Credential</h2>
-      <input type="text" id="studentName" placeholder="Student Name" />
-      <input type="text" id="course" placeholder="Course" />
-      <button onclick="issueCredential()">🎯 Issue Credential</button>
-    </div>
-
-    <div class="section">
-      <h2>View Credential</h2>
-      <input type="number" id="tokenId" placeholder="Token ID" />
-      <button onclick="viewCredential()">👀 View</button>
-      <pre id="viewResult"></pre>
-    </div>
-
-    <div class="section">
-      <h2>Verify Credential</h2>
-      <input type="number" id="verifyTokenId" placeholder="Token ID" />
-      <button onclick="verifyCredential()">✅ Verify</button>
-      <p id="verifyResult"></p>
-    </div>
+    <div class="result" id="resultOutput"></div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
   <script>
-    let web3;
-    let contract;
+    let certHash = "";
+    const contractAddress = "YOUR_CONTRACT_ADDRESS_HERE"; // Replace with your deployed address
+    const contractABI = [ /* YOUR_ABI_HERE */ ]; // Replace with your ABI
 
-    const contractAddress = "YOUR_CONTRACT_ADDRESS"; // 🔁 Replace this
-    const abi = [ 
-      // 🔁 Replace this with your actual contract's ABI
-      {
-        "inputs": [
-          { "internalType": "string", "name": "_name", "type": "string" },
-          { "internalType": "string", "name": "_course", "type": "string" }
-        ],
-        "name": "issueCredential",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-      },
-      {
-        "inputs": [
-          { "internalType": "uint256", "name": "tokenId", "type": "uint256" }
-        ],
-        "name": "getCredential",
-        "outputs": [
-          { "internalType": "string", "name": "", "type": "string" },
-          { "internalType": "string", "name": "", "type": "string" }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-      },
-      {
-        "inputs": [
-          { "internalType": "uint256", "name": "tokenId", "type": "uint256" }
-        ],
-        "name": "exists",
-        "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
-        "stateMutability": "view",
-        "type": "function"
-      }
-    ];
+    document.getElementById("fileInput").addEventListener("change", async function () {
+      const file = this.files[0];
+      if (!file) return;
 
-    async function connectWallet() {
-      if (window.ethereum) {
-        web3 = new Web3(window.ethereum);
-        await window.ethereum.enable();
-        const accounts = await web3.eth.getAccounts();
-        document.getElementById("walletAddress").innerText = "Connected: " + accounts[0];
-        contract = new web3.eth.Contract(abi, contractAddress);
-      } else {
-        alert("Install MetaMask first!");
-      }
+      const arrayBuffer = await file.arrayBuffer();
+      const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      certHash = "0x" + hashHex;
+      document.getElementById("hashOutput").innerText = `Certificate Hash (bytes32): ${certHash}`;
+    });
+
+    async function getContract() {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      await provider.send("eth_requestAccounts", []);
+      const signer = await provider.getSigner();
+      return new ethers.Contract(contractAddress, contractABI, signer);
     }
 
-    async function issueCredential() {
-      const name = document.getElementById("studentName").value;
-      const course = document.getElementById("course").value;
-      const accounts = await web3.eth.getAccounts();
-
-      contract.methods.issueCredential(name, course)
-        .send({ from: accounts[0] })
-        .on("receipt", (receipt) => {
-          alert("✅ Credential Issued! Tx: " + receipt.transactionHash);
-        })
-        .on("error", (err) => {
-          console.error(err);
-          alert("❌ Error issuing credential");
-        });
-    }
-
-    async function viewCredential() {
-      const tokenId = document.getElementById("tokenId").value;
+    async function issueCertificate() {
+      if (!certHash) return alert("Please upload a certificate first.");
+      const contract = await getContract();
       try {
-        const result = await contract.methods.getCredential(tokenId).call();
-        document.getElementById("viewResult").innerText = `Name: ${result[0]}\nCourse: ${result[1]}`;
+        const tx = await contract.issueCertificate(certHash);
+        await tx.wait();
+        document.getElementById("resultOutput").innerText = "✅ Certificate issued successfully.";
       } catch (err) {
-        document.getElementById("viewResult").innerText = "❌ Credential not found.";
+        console.error(err);
+        alert("❌ Error issuing certificate.");
       }
     }
 
-    async function verifyCredential() {
-      const tokenId = document.getElementById("verifyTokenId").value;
+    async function verifyCertificate() {
+      if (!certHash) return alert("Please upload a certificate first.");
+      const contract = await getContract();
       try {
-        const exists = await contract.methods.exists(tokenId).call();
-        document.getElementById("verifyResult").innerText = exists ? "✅ Credential is valid." : "❌ Invalid Credential.";
+        const isValid = await contract.verifyCertificate(certHash);
+        document.getElementById("resultOutput").innerText = isValid
+          ? "✅ Certificate is valid."
+          : "❌ Certificate is NOT valid.";
       } catch (err) {
-        document.getElementById("verifyResult").innerText = "❌ Error verifying credential.";
+        console.error(err);
+        alert("❌ Error verifying certificate.");
       }
     }
   </script>
