@@ -5,6 +5,7 @@
   <title>Verifiable Certificate Registry</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/js-sha256@0.9.0/build/sha256.min.js"></script>
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
@@ -108,8 +109,8 @@
           return;
         }
 
-        await window.ethereum.request({ method: "eth_requestAccounts" });
-        provider = new ethers.providers.Web3Provider(window.ethereum);
+        provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+        await provider.send("eth_requestAccounts", []);
         signer = provider.getSigner();
         contract = new ethers.Contract(contractAddress, contractABI, signer);
 
@@ -130,7 +131,7 @@
       reader.onload = async function(event) {
         const arrayBuffer = event.target.result;
         const bytes = new Uint8Array(arrayBuffer);
-        const hash = ethers.utils.keccak256(bytes);
+        const hash = "0x" + sha256(bytes);
         document.getElementById("certHash").value = hash;
       };
       reader.readAsArrayBuffer(file);
@@ -147,7 +148,7 @@
         document.getElementById("status").innerText = "✅ Certificate issued.";
       } catch (err) {
         console.error(err);
-        const message = err?.error?.message || err.message;
+        const message = err?.error?.message || err?.data?.message || err.message || "Unknown error";
         document.getElementById("status").innerText = `❌ Error issuing certificate: ${message}`;
       }
     }
@@ -163,7 +164,7 @@
         document.getElementById("status").innerText = "⚠️ Certificate revoked.";
       } catch (err) {
         console.error(err);
-        const message = err?.error?.message || err.message;
+        const message = err?.error?.message || err?.data?.message || err.message || "Unknown error";
         document.getElementById("status").innerText = `❌ Error revoking certificate: ${message}`;
       }
     }
@@ -179,7 +180,7 @@
           : "❌ Certificate is INVALID or REVOKED.";
       } catch (err) {
         console.error(err);
-        const message = err?.error?.message || err.message;
+        const message = err?.error?.message || err?.data?.message || err.message || "Unknown error";
         document.getElementById("status").innerText = `❌ Error verifying certificate: ${message}`;
       }
     }
