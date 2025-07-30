@@ -2,116 +2,77 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Verifiable Certificate Registry</title>
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.jsdelivr.net/npm/ethers/dist/ethers.min.js"></script>
   <style>
     body {
-      font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(to right, #d3cce3, #e9e4f0);
       margin: 0;
       padding: 0;
-      color: #333;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
     }
-
-    header {
-      background-color: #4c00b0;
-      padding: 1rem;
-      text-align: center;
-      color: white;
-    }
-
     .container {
-      padding: 2rem;
-      max-width: 800px;
-      margin: auto;
+      background-color: #fff;
+      color: #333;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+      width: 100%;
+      max-width: 500px;
     }
-
-    h2 {
-      color: #4c00b0;
-      margin-bottom: 10px;
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #4c51bf;
     }
-
     input[type="text"] {
       width: 100%;
-      padding: 0.8rem;
-      margin: 0.5rem 0 1rem;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #ccc;
       border-radius: 8px;
-      border: 1px solid #999;
+      font-size: 14px;
     }
-
     button {
-      background-color: #4c00b0;
-      color: white;
-      padding: 0.7rem 1.5rem;
-      margin: 0.5rem 0;
+      width: 100%;
+      padding: 10px;
+      background-color: #4c51bf;
+      color: #fff;
       border: none;
       border-radius: 8px;
+      font-size: 16px;
       cursor: pointer;
-      transition: 0.3s ease;
+      margin-bottom: 10px;
     }
-
     button:hover {
-      background-color: #36007a;
+      background-color: #5a67d8;
     }
-
-    .result {
-      margin-top: 1rem;
+    #status {
+      margin-top: 15px;
       font-weight: bold;
-      font-size: 1.1rem;
-    }
-
-    .section {
-      background: #fff;
-      padding: 1.5rem;
-      margin-bottom: 2rem;
-      border-radius: 12px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    }
-
-    .wallet-button {
-      position: absolute;
-      top: 10px;
-      right: 20px;
-      background-color: #ff66cc;
-    }
-
-    @media screen and (max-width: 600px) {
-      .wallet-button {
-        position: static;
-        margin-top: 1rem;
-      }
+      text-align: center;
     }
   </style>
 </head>
 <body>
-
-  <header>
-    <h1>🔐 Verifiable Certificate Registry</h1>
-    <button class="wallet-button" onclick="connectWallet()">🔗 Connect Wallet</button>
-  </header>
-
   <div class="container">
+    <h1>Certificate Registry</h1>
+    <button onclick="connectWallet()">🔗 Connect Wallet</button>
+    <input type="text" id="certData" placeholder="Enter certificate text or ID" />
+    <button onclick="generateHash()">🧾 Generate Hash</button>
+    <input type="text" id="certHash" placeholder="Certificate SHA-256 Hash" readonly />
 
-    <div class="section">
-      <h2>📜 Issue Certificate</h2>
-      <input type="text" id="issueHash" placeholder="Enter certificate text to hash & issue" />
-      <button onclick="issueCertificate()">✅ Issue</button>
-    </div>
+    <button onclick="issueCert()">✅ Issue Certificate</button>
+    <button onclick="revokeCert()">❌ Revoke Certificate</button>
+    <button onclick="verifyCert()">🔍 Verify Certificate</button>
 
-    <div class="section">
-      <h2>❌ Revoke Certificate</h2>
-      <input type="text" id="revokeHash" placeholder="Enter certificate text to revoke" />
-      <button onclick="revokeCertificate()">❌ Revoke</button>
-    </div>
-
-    <div class="section">
-      <h2>🔎 Verify Certificate</h2>
-      <input type="text" id="verifyHash" placeholder="Enter certificate text to verify" />
-      <button onclick="verifyCertificate()">🔍 Verify</button>
-      <div class="result" id="verifyResult"></div>
-    </div>
-
+    <div id="status"></div>
   </div>
 
   <script>
@@ -122,31 +83,23 @@
     const contractAddress = "0x5ED0bEB3ef367DB79712Fb7524933a7119FAbA1E";
     const contractABI = [
       {
-        "inputs": [
-          { "internalType": "bytes32", "name": "certHash", "type": "bytes32" }
-        ],
+        "inputs": [{ "internalType": "bytes32", "name": "certHash", "type": "bytes32" }],
         "name": "issueCertificate",
         "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function"
       },
       {
-        "inputs": [
-          { "internalType": "bytes32", "name": "certHash", "type": "bytes32" }
-        ],
+        "inputs": [{ "internalType": "bytes32", "name": "certHash", "type": "bytes32" }],
         "name": "revokeCertificate",
         "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function"
       },
       {
-        "inputs": [
-          { "internalType": "bytes32", "name": "certHash", "type": "bytes32" }
-        ],
+        "inputs": [{ "internalType": "bytes32", "name": "certHash", "type": "bytes32" }],
         "name": "verifyCertificate",
-        "outputs": [
-          { "internalType": "bool", "name": "", "type": "bool" }
-        ],
+        "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
         "stateMutability": "view",
         "type": "function"
       }
@@ -154,62 +107,57 @@
 
     async function connectWallet() {
       if (window.ethereum) {
-        try {
-          await window.ethereum.request({ method: "eth_requestAccounts" });
-          provider = new ethers.providers.Web3Provider(window.ethereum);
-          signer = provider.getSigner();
-          contract = new ethers.Contract(contractAddress, contractABI, signer);
-          alert("Wallet connected successfully!");
-        } catch (error) {
-          alert("Wallet connection failed: " + error.message);
-        }
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        signer = provider.getSigner();
+        contract = new ethers.Contract(contractAddress, contractABI, signer);
+        document.getElementById("status").innerText = "✅ Wallet connected.";
       } else {
-        alert("MetaMask is not installed!");
+        alert("Please install MetaMask.");
       }
     }
 
-    function sha256(text) {
-      return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(text));
+    function generateHash() {
+      const input = document.getElementById("certData").value;
+      if (!input) return alert("Please enter certificate content.");
+      const hash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(input));
+      document.getElementById("certHash").value = hash;
     }
 
-    async function issueCertificate() {
-      const text = document.getElementById("issueHash").value.trim();
-      if (!text) return alert("Please enter certificate text");
-      const hash = sha256(text);
+    async function issueCert() {
       try {
+        const hash = document.getElementById("certHash").value;
         const tx = await contract.issueCertificate(hash);
         await tx.wait();
-        alert("✅ Certificate issued!");
+        document.getElementById("status").innerText = "✅ Certificate issued.";
       } catch (err) {
-        alert("❌ Error issuing: " + err.message);
+        console.error(err);
+        alert("Error issuing certificate.");
       }
     }
 
-    async function revokeCertificate() {
-      const text = document.getElementById("revokeHash").value.trim();
-      if (!text) return alert("Please enter certificate text");
-      const hash = sha256(text);
+    async function revokeCert() {
       try {
+        const hash = document.getElementById("certHash").value;
         const tx = await contract.revokeCertificate(hash);
         await tx.wait();
-        alert("🚫 Certificate revoked!");
+        document.getElementById("status").innerText = "⚠️ Certificate revoked.";
       } catch (err) {
-        alert("❌ Error revoking: " + err.message);
+        console.error(err);
+        alert("Error revoking certificate.");
       }
     }
 
-    async function verifyCertificate() {
-      const text = document.getElementById("verifyHash").value.trim();
-      if (!text) return alert("Please enter certificate text");
-      const hash = sha256(text);
+    async function verifyCert() {
       try {
+        const hash = document.getElementById("certHash").value;
         const isValid = await contract.verifyCertificate(hash);
-        const resultBox = document.getElementById("verifyResult");
-        resultBox.textContent = isValid
-          ? "✅ Certificate is VALID!"
-          : "❌ Certificate is INVALID or REVOKED.";
+        document.getElementById("status").innerText = isValid
+          ? "✅ Certificate is VALID"
+          : "❌ Certificate is INVALID or REVOKED";
       } catch (err) {
-        alert("❌ Error verifying: " + err.message);
+        console.error(err);
+        alert("Error verifying certificate.");
       }
     }
   </script>
