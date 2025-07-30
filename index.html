@@ -85,6 +85,8 @@
   <script>
     let certHash = "";
     let contract;
+    let signer;
+    let currentAccount = "";
     const contractAddress = "0x07a679aedd2f4991fa1abd8f0167a423fc7f9c4b";
     const contractABI = [
       { "inputs": [], "stateMutability": "nonpayable", "type": "constructor" },
@@ -112,7 +114,8 @@
       try {
         const provider = new ethers.BrowserProvider(window.ethereum);
         await provider.send("eth_requestAccounts", []);
-        const signer = await provider.getSigner();
+        signer = await provider.getSigner();
+        currentAccount = await signer.getAddress();
         contract = new ethers.Contract(contractAddress, contractABI, signer);
         alert("🔗 Connected to MetaMask successfully!");
       } catch (err) {
@@ -127,7 +130,7 @@
         await tx.wait();
         document.getElementById("resultOutput").innerText = "✅ Certificate issued successfully.";
       } catch (e) {
-        document.getElementById("resultOutput").innerText = "❌ Error issuing certificate.";
+        document.getElementById("resultOutput").innerText = "❌ Error issuing certificate: " + e.message;
         console.error(e);
       }
     }
@@ -138,7 +141,7 @@
         const isValid = await contract.verifyCertificate(certHash);
         document.getElementById("resultOutput").innerText = isValid ? "✅ Certificate is VALID." : "❌ Certificate is NOT valid.";
       } catch (e) {
-        document.getElementById("resultOutput").innerText = "❌ Error verifying certificate.";
+        document.getElementById("resultOutput").innerText = "❌ Error verifying certificate: " + e.message;
         console.error(e);
       }
     }
@@ -146,11 +149,15 @@
     async function revokeCertificate() {
       if (!certHash || !contract) return alert("Please upload a file and connect wallet.");
       try {
+        const contractOwner = await contract.owner();
+        if (currentAccount.toLowerCase() !== contractOwner.toLowerCase()) {
+          return alert("⚠️ Only the contract owner can revoke certificates.");
+        }
         const tx = await contract.revokeCertificate(certHash);
         await tx.wait();
         document.getElementById("resultOutput").innerText = "❌ Certificate revoked successfully.";
       } catch (e) {
-        document.getElementById("resultOutput").innerText = "⚠️ Error revoking certificate.";
+        document.getElementById("resultOutput").innerText = "⚠️ Error revoking certificate: " + e.message;
         console.error(e);
       }
     }
