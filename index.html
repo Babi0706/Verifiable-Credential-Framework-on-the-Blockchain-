@@ -85,11 +85,16 @@
   <script>
     let certHash = "";
     let contract;
-    const contractAddress = "YOUR_CONTRACT_ADDRESS_HERE";
+    const contractAddress = "0x07a679aedd2f4991fa1abd8f0167a423fc7f9c4b";
     const contractABI = [
+      { "inputs": [], "stateMutability": "nonpayable", "type": "constructor" },
+      { "anonymous": false, "inputs": [ { "indexed": false, "internalType": "bytes32", "name": "certHash", "type": "bytes32" }, { "indexed": true, "internalType": "address", "name": "issuer", "type": "address" } ], "name": "CertificateIssued", "type": "event" },
+      { "anonymous": false, "inputs": [ { "indexed": false, "internalType": "bytes32", "name": "certHash", "type": "bytes32" }, { "indexed": true, "internalType": "address", "name": "revoker", "type": "address" } ], "name": "CertificateRevoked", "type": "event" },
       { "inputs": [ { "internalType": "bytes32", "name": "certHash", "type": "bytes32" } ], "name": "issueCertificate", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
-      { "inputs": [ { "internalType": "bytes32", "name": "certHash", "type": "bytes32" } ], "name": "verifyCertificate", "outputs": [ { "internalType": "bool", "name": "", "type": "bool" } ], "stateMutability": "view", "type": "function" },
-      { "inputs": [ { "internalType": "bytes32", "name": "certHash", "type": "bytes32" } ], "name": "revokeCertificate", "outputs": [], "stateMutability": "nonpayable", "type": "function" }
+      { "inputs": [ { "internalType": "bytes32", "name": "certHash", "type": "bytes32" } ], "name": "revokeCertificate", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+      { "inputs": [], "name": "owner", "outputs": [ { "internalType": "address", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" },
+      { "inputs": [ { "internalType": "bytes32", "name": "", "type": "bytes32" } ], "name": "validCertificates", "outputs": [ { "internalType": "bool", "name": "", "type": "bool" } ], "stateMutability": "view", "type": "function" },
+      { "inputs": [ { "internalType": "bytes32", "name": "certHash", "type": "bytes32" } ], "name": "verifyCertificate", "outputs": [ { "internalType": "bool", "name": "", "type": "bool" } ], "stateMutability": "view", "type": "function" }
     ];
 
     document.getElementById("fileInput").addEventListener("change", async function () {
