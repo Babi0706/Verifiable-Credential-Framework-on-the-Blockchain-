@@ -1,134 +1,242 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Batch Certificate Registration</title>
+  <meta charset="UTF-8" />
+  <title>Verifiable Certificate Registry</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.jsdelivr.net/npm/ethers/dist/ethers.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      max-width: 800px;
-      margin: auto;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
     }
-    textarea {
+    .container {
+      background-color: #fff;
+      color: #333;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
       width: 100%;
-      height: 250px;
-      font-family: monospace;
+      max-width: 600px;
+      overflow-y: auto;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #4c51bf;
+    }
+    .card {
+      margin-bottom: 25px;
+    }
+    .card h2 {
+      font-size: 20px;
+      margin-bottom: 10px;
+      color: #5a67d8;
+    }
+    input[type="text"], input[type="file"] {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
       font-size: 14px;
     }
     button {
-      padding: 10px 20px;
-      margin-top: 10px;
-      font-size: 16px;
-    }
-    table {
-      margin-top: 20px;
       width: 100%;
-      border-collapse: collapse;
-    }
-    th, td {
       padding: 10px;
-      border: 1px solid #ccc;
-      text-align: left;
+      background-color: #4c51bf;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #5a67d8;
+    }
+    #walletAddress {
+      text-align: center;
+      margin-bottom: 20px;
       font-size: 14px;
+      color: #666;
     }
-    th {
-      background-color: #f2f2f2;
+    .log {
+      background: #f3f3f3;
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 13px;
+      max-height: 150px;
+      overflow-y: auto;
     }
-    .success {
-      color: green;
-      font-weight: bold;
+    .log-entry {
+      border-bottom: 1px solid #ddd;
+      padding: 6px 0;
     }
-    .fail {
-      color: red;
-      font-weight: bold;
+    #qrcode {
+      text-align: center;
+      margin-top: 15px;
     }
   </style>
 </head>
 <body>
-  <h1>Batch Certificate Registration</h1>
-  <p>Paste certificate data as a JSON array:</p>
-  <textarea id="certInput">[
-  {
-    "name": "Alice",
-    "course": "Blockchain Development",
-    "institution": "Tech University",
-    "dateIssued": "2025-07-30"
-  },
-  {
-    "name": "Bob",
-    "course": "AI & ML",
-    "institution": "OpenLearn Academy",
-    "dateIssued": "2025-06-15"
-  }
-]</textarea>
-  <br>
-  <button onclick="registerAll()">Register All</button>
+  <div class="container">
+    <h1>Verifiable Certificate Registry</h1>
+    <button onclick="connectWallet()">🔗 Connect Wallet</button>
+    <p id="walletAddress">Wallet not connected</p>
 
-  <table id="resultsTable">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Name</th>
-        <th>Course</th>
-        <th>Status</th>
-        <th>Hash</th>
-        <th>Transaction</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+    <div class="card">
+      <h2>Upload Certificate File</h2>
+      <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg,.docx" />
+      <input type="text" id="fileHash" readonly placeholder="SHA-256 hash will appear here" />
+      <button onclick="hashCertificateFile()">📄 Generate Hash</button>
+    </div>
+
+    <div class="card">
+      <h2>Issue Certificate</h2>
+      <input type="text" id="issueHash" placeholder="Enter Certificate Hash" />
+      <button onclick="issueCertificate()">✅ Issue</button>
+      <div id="qrcode"></div>
+    </div>
+
+    <div class="card">
+      <h2>Revoke Certificate</h2>
+      <input type="text" id="revokeHash" placeholder="Enter Certificate Hash" />
+      <button onclick="revokeCertificate()">❌ Revoke</button>
+    </div>
+
+    <div class="card">
+      <h2>Verify Certificate</h2>
+      <input type="text" id="verifyHash" placeholder="Enter Certificate Hash" />
+      <button onclick="verifyCertificate()">🔍 Verify</button>
+      <p id="verifyResult"></p>
+    </div>
+
+    <div class="card">
+      <h2>Recent Activity Log</h2>
+      <div class="log" id="actionLog"></div>
+    </div>
+  </div>
 
   <script>
-    async function registerAll() {
-      const input = document.getElementById("certInput").value;
-      const tableBody = document.querySelector("#resultsTable tbody");
-      tableBody.innerHTML = "";
+    const contractAddress = "0x5ED0bEB3ef367DB79712Fb7524933a7119FAbA1E";
+    const contractABI = [
+      {
+        "inputs": [],
+        "stateMutability": "nonpayable",
+        "type": "constructor"
+      },
+      {
+        "inputs": [{ "internalType": "bytes32", "name": "certHash", "type": "bytes32" }],
+        "name": "issueCertificate",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [{ "internalType": "bytes32", "name": "certHash", "type": "bytes32" }],
+        "name": "revokeCertificate",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [{ "internalType": "bytes32", "name": "certHash", "type": "bytes32" }],
+        "name": "verifyCertificate",
+        "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ];
 
-      let certificates;
+    let signer, contract;
+
+    async function connectWallet() {
+      if (typeof window.ethereum !== "undefined") {
+        const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+        document.getElementById("walletAddress").innerText = `Connected: ${accounts[0]}`;
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = provider.getSigner();
+        contract = new ethers.Contract(contractAddress, contractABI, signer);
+      } else {
+        alert("Please install MetaMask.");
+      }
+    }
+
+    function appendLog(message) {
+      const log = document.getElementById("actionLog");
+      const entry = document.createElement("div");
+      entry.className = "log-entry";
+      entry.innerText = `[${new Date().toLocaleTimeString()}] ${message}`;
+      log.prepend(entry);
+    }
+
+    async function issueCertificate() {
+      const hash = document.getElementById("issueHash").value.trim();
+      if (!hash) return alert("Enter a valid hash.");
       try {
-        certificates = JSON.parse(input);
-        if (!Array.isArray(certificates)) throw new Error();
-      } catch {
-        alert("Invalid JSON array. Please format correctly.");
-        return;
+        const tx = await contract.issueCertificate(hash);
+        await tx.wait();
+        appendLog(`✅ Issued certificate: ${hash}`);
+        document.getElementById("qrcode").innerHTML = "";
+        QRCode.toCanvas(document.createElement('canvas'), hash, (err, canvas) => {
+          if (!err) document.getElementById("qrcode").appendChild(canvas);
+        });
+        alert("Certificate issued and QR code generated!");
+      } catch (err) {
+        alert("Error issuing: " + err.message);
       }
+    }
 
-      for (let i = 0; i < certificates.length; i++) {
-        const cert = certificates[i];
-
-        // Show temporary row
-        const row = tableBody.insertRow();
-        row.innerHTML = `
-          <td>${i + 1}</td>
-          <td>${cert.name || "-"}</td>
-          <td>${cert.course || "-"}</td>
-          <td>⏳ Registering...</td>
-          <td>-</td>
-          <td>-</td>
-        `;
-
-        try {
-          const res = await fetch("http://localhost:3000/register", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(cert)
-          });
-
-          const result = await res.json();
-          if (res.ok) {
-            row.cells[3].innerHTML = `<span class="success">✅ Success</span>`;
-            row.cells[4].innerText = result.hash;
-            row.cells[5].innerText = result.txHash;
-          } else {
-            row.cells[3].innerHTML = `<span class="fail">❌ Failed</span>`;
-            row.cells[4].innerText = "-";
-            row.cells[5].innerText = result.error || "Unknown error";
-          }
-        } catch (err) {
-          row.cells[3].innerHTML = `<span class="fail">❌ Error</span>`;
-          row.cells[5].innerText = err.message;
-        }
+    async function revokeCertificate() {
+      const hash = document.getElementById("revokeHash").value.trim();
+      if (!hash) return alert("Enter a valid hash.");
+      try {
+        const tx = await contract.revokeCertificate(hash);
+        await tx.wait();
+        appendLog(`🗑️ Revoked certificate: ${hash}`);
+        alert("Certificate revoked!");
+      } catch (err) {
+        alert("Error revoking: " + err.message);
       }
+    }
+
+    async function verifyCertificate() {
+      const hash = document.getElementById("verifyHash").value.trim();
+      if (!hash) return alert("Enter a valid hash.");
+      try {
+        const result = await contract.verifyCertificate(hash);
+        const msg = result ? "✅ Certificate is valid." : "❌ Invalid or revoked.";
+        document.getElementById("verifyResult").innerText = msg;
+        appendLog(`🔍 Verified: ${hash} → ${msg}`);
+      } catch (err) {
+        alert("Error verifying: " + err.message);
+      }
+    }
+
+    async function hashCertificateFile() {
+      const fileInput = document.getElementById("fileInput");
+      const hashOutput = document.getElementById("fileHash");
+
+      if (!fileInput.files.length) return alert("Please select a certificate file.");
+      const file = fileInput.files[0];
+      const buffer = await file.arrayBuffer();
+      const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hexHash = "0x" + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+      hashOutput.value = hexHash;
+      ["issueHash", "revokeHash", "verifyHash"].forEach(id => {
+        document.getElementById(id).value = hexHash;
+      });
+
+      appendLog(`📄 File hashed to: ${hexHash}`);
     }
   </script>
 </body>
