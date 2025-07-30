@@ -142,7 +142,7 @@
       const hash = document.getElementById("certHash").value;
       if (!hash) return alert("Generate or enter certificate hash first.");
       try {
-        const tx = await contract.issueCertificate(hash);
+        const tx = await contract.issueCertificate(hash, { gasLimit: 100000 });
         document.getElementById("status").innerText = "📤 Sending transaction...";
         await tx.wait();
         document.getElementById("status").innerText = "✅ Certificate issued.";
@@ -158,7 +158,7 @@
       const hash = document.getElementById("certHash").value;
       if (!hash) return alert("Generate or enter certificate hash first.");
       try {
-        const tx = await contract.revokeCertificate(hash);
+        const tx = await contract.revokeCertificate(hash, { gasLimit: 100000 });
         document.getElementById("status").innerText = "📤 Sending transaction...";
         await tx.wait();
         document.getElementById("status").innerText = "⚠️ Certificate revoked.";
