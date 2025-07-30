@@ -142,11 +142,13 @@
       if (!hash) return alert("Generate or enter certificate hash first.");
       try {
         const tx = await contract.issueCertificate(hash);
+        document.getElementById("status").innerText = "📤 Sending transaction...";
         await tx.wait();
         document.getElementById("status").innerText = "✅ Certificate issued.";
       } catch (err) {
         console.error(err);
-        document.getElementById("status").innerText = `❌ Error issuing certificate: ${err.message}`;
+        const message = err?.error?.message || err.message;
+        document.getElementById("status").innerText = `❌ Error issuing certificate: ${message}`;
       }
     }
 
@@ -156,11 +158,13 @@
       if (!hash) return alert("Generate or enter certificate hash first.");
       try {
         const tx = await contract.revokeCertificate(hash);
+        document.getElementById("status").innerText = "📤 Sending transaction...";
         await tx.wait();
         document.getElementById("status").innerText = "⚠️ Certificate revoked.";
       } catch (err) {
         console.error(err);
-        document.getElementById("status").innerText = `❌ Error revoking certificate: ${err.message}`;
+        const message = err?.error?.message || err.message;
+        document.getElementById("status").innerText = `❌ Error revoking certificate: ${message}`;
       }
     }
 
@@ -175,7 +179,8 @@
           : "❌ Certificate is INVALID or REVOKED.";
       } catch (err) {
         console.error(err);
-        document.getElementById("status").innerText = `❌ Error verifying certificate: ${err.message}`;
+        const message = err?.error?.message || err.message;
+        document.getElementById("status").innerText = `❌ Error verifying certificate: ${message}`;
       }
     }
   </script>
