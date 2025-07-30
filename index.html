@@ -1,164 +1,133 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Blockchain Certificate Verifier</title>
-  <script src="https://cdn.jsdelivr.net/npm/ethers@6.6.2/dist/ethers.umd.min.js"></script>
+  <title>Batch Certificate Registration</title>
   <style>
     body {
-      margin: 0;
-      font-family: 'Segoe UI', sans-serif;
-      background: #f9f9f9;
-      color: #333;
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: auto;
     }
-    header {
-      background: #1a73e8;
-      padding: 1rem 2rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      color: white;
-    }
-    header h1 {
-      margin: 0;
-      font-size: 1.5rem;
-    }
-    .connect-btn {
-      background: white;
-      color: #1a73e8;
-      border: none;
-      padding: 0.5rem 1rem;
-      border-radius: 5px;
-      cursor: pointer;
-      font-weight: bold;
-    }
-    .container {
-      max-width: 700px;
-      margin: 2rem auto;
-      background: white;
-      padding: 2rem;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.05);
-    }
-    input[type="file"] {
-      margin: 1rem 0;
+    textarea {
+      width: 100%;
+      height: 250px;
+      font-family: monospace;
+      font-size: 14px;
     }
     button {
-      background: #1a73e8;
-      color: white;
-      border: none;
-      padding: 0.6rem 1.2rem;
-      margin-right: 1rem;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 1rem;
+      padding: 10px 20px;
+      margin-top: 10px;
+      font-size: 16px;
     }
-    .output {
-      margin-top: 1rem;
-      padding: 1rem;
-      background: #f1f1f1;
-      border-radius: 5px;
-      word-break: break-all;
-      font-family: monospace;
+    table {
+      margin-top: 20px;
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ccc;
+      text-align: left;
+      font-size: 14px;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    .success {
+      color: green;
+      font-weight: bold;
+    }
+    .fail {
+      color: red;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <header>
-    <h1>🎓 Certificate Verifier</h1>
-    <button class="connect-btn" onclick="connectWallet()">Connect MetaMask</button>
-  </header>
+  <h1>Batch Certificate Registration</h1>
+  <p>Paste certificate data as a JSON array:</p>
+  <textarea id="certInput">[
+  {
+    "name": "Alice",
+    "course": "Blockchain Development",
+    "institution": "Tech University",
+    "dateIssued": "2025-07-30"
+  },
+  {
+    "name": "Bob",
+    "course": "AI & ML",
+    "institution": "OpenLearn Academy",
+    "dateIssued": "2025-06-15"
+  }
+]</textarea>
+  <br>
+  <button onclick="registerAll()">Register All</button>
 
-  <div class="container">
-    <h2>Upload Certificate</h2>
-    <input type="file" id="fileInput">
-    <div id="hashOutput" class="output">Certificate hash will appear here...</div>
-
-    <button onclick="issueCertificate()">✅ Issue</button>
-    <button onclick="verifyCertificate()">🔍 Verify</button>
-    <button onclick="revokeCertificate()">❌ Revoke</button>
-
-    <div id="resultOutput" class="output"></div>
-  </div>
+  <table id="resultsTable">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Name</th>
+        <th>Course</th>
+        <th>Status</th>
+        <th>Hash</th>
+        <th>Transaction</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 
   <script>
-    let certHash = "";
-    let contract;
-    let signer;
-    let currentAccount = "";
-    const contractAddress = "0x07a679aedd2f4991fa1abd8f0167a423fc7f9c4b";
-    const contractABI = [
-      { "inputs": [], "stateMutability": "nonpayable", "type": "constructor" },
-      { "anonymous": false, "inputs": [ { "indexed": false, "internalType": "bytes32", "name": "certHash", "type": "bytes32" }, { "indexed": true, "internalType": "address", "name": "issuer", "type": "address" } ], "name": "CertificateIssued", "type": "event" },
-      { "anonymous": false, "inputs": [ { "indexed": false, "internalType": "bytes32", "name": "certHash", "type": "bytes32" }, { "indexed": true, "internalType": "address", "name": "revoker", "type": "address" } ], "name": "CertificateRevoked", "type": "event" },
-      { "inputs": [ { "internalType": "bytes32", "name": "certHash", "type": "bytes32" } ], "name": "issueCertificate", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
-      { "inputs": [ { "internalType": "bytes32", "name": "certHash", "type": "bytes32" } ], "name": "revokeCertificate", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
-      { "inputs": [], "name": "owner", "outputs": [ { "internalType": "address", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" },
-      { "inputs": [ { "internalType": "bytes32", "name": "", "type": "bytes32" } ], "name": "validCertificates", "outputs": [ { "internalType": "bool", "name": "", "type": "bool" } ], "stateMutability": "view", "type": "function" },
-      { "inputs": [ { "internalType": "bytes32", "name": "certHash", "type": "bytes32" } ], "name": "verifyCertificate", "outputs": [ { "internalType": "bool", "name": "", "type": "bool" } ], "stateMutability": "view", "type": "function" }
-    ];
+    async function registerAll() {
+      const input = document.getElementById("certInput").value;
+      const tableBody = document.querySelector("#resultsTable tbody");
+      tableBody.innerHTML = "";
 
-    document.getElementById("fileInput").addEventListener("change", async function () {
-      const file = this.files[0];
-      if (!file) return;
-      const arrayBuffer = await file.arrayBuffer();
-      const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-      certHash = "0x" + hashHex;
-      document.getElementById("hashOutput").innerText = certHash;
-    });
-
-    async function connectWallet() {
+      let certificates;
       try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        await provider.send("eth_requestAccounts", []);
-        signer = await provider.getSigner();
-        currentAccount = await signer.getAddress();
-        contract = new ethers.Contract(contractAddress, contractABI, signer);
-        alert("🔗 Connected to MetaMask successfully!");
-      } catch (err) {
-        alert("⚠️ Failed to connect MetaMask: " + err.message);
+        certificates = JSON.parse(input);
+        if (!Array.isArray(certificates)) throw new Error();
+      } catch {
+        alert("Invalid JSON array. Please format correctly.");
+        return;
       }
-    }
 
-    async function issueCertificate() {
-      if (!certHash || !contract) return alert("Please upload a file and connect wallet.");
-      try {
-        const tx = await contract.issueCertificate(certHash);
-        await tx.wait();
-        document.getElementById("resultOutput").innerText = "✅ Certificate issued successfully.";
-      } catch (e) {
-        document.getElementById("resultOutput").innerText = "❌ Error issuing certificate: " + e.message;
-        console.error(e);
-      }
-    }
+      for (let i = 0; i < certificates.length; i++) {
+        const cert = certificates[i];
 
-    async function verifyCertificate() {
-      if (!certHash || !contract) return alert("Please upload a file and connect wallet.");
-      try {
-        const isValid = await contract.verifyCertificate(certHash);
-        document.getElementById("resultOutput").innerText = isValid ? "✅ Certificate is VALID." : "❌ Certificate is NOT valid.";
-      } catch (e) {
-        document.getElementById("resultOutput").innerText = "❌ Error verifying certificate: " + e.message;
-        console.error(e);
-      }
-    }
+        // Show temporary row
+        const row = tableBody.insertRow();
+        row.innerHTML = `
+          <td>${i + 1}</td>
+          <td>${cert.name || "-"}</td>
+          <td>${cert.course || "-"}</td>
+          <td>⏳ Registering...</td>
+          <td>-</td>
+          <td>-</td>
+        `;
 
-    async function revokeCertificate() {
-      if (!certHash || !contract) return alert("Please upload a file and connect wallet.");
-      try {
-        const contractOwner = await contract.owner();
-        if (currentAccount.toLowerCase() !== contractOwner.toLowerCase()) {
-          return alert("⚠️ Only the contract owner can revoke certificates.");
+        try {
+          const res = await fetch("http://localhost:3000/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(cert)
+          });
+
+          const result = await res.json();
+          if (res.ok) {
+            row.cells[3].innerHTML = `<span class="success">✅ Success</span>`;
+            row.cells[4].innerText = result.hash;
+            row.cells[5].innerText = result.txHash;
+          } else {
+            row.cells[3].innerHTML = `<span class="fail">❌ Failed</span>`;
+            row.cells[4].innerText = "-";
+            row.cells[5].innerText = result.error || "Unknown error";
+          }
+        } catch (err) {
+          row.cells[3].innerHTML = `<span class="fail">❌ Error</span>`;
+          row.cells[5].innerText = err.message;
         }
-        const tx = await contract.revokeCertificate(certHash);
-        await tx.wait();
-        document.getElementById("resultOutput").innerText = "❌ Certificate revoked successfully.";
-      } catch (e) {
-        document.getElementById("resultOutput").innerText = "⚠️ Error revoking certificate: " + e.message;
-        console.error(e);
       }
     }
   </script>
