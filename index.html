@@ -7,80 +7,76 @@
   <script src="https://cdn.jsdelivr.net/npm/ethers/dist/ethers.min.js"></script>
   <style>
     body {
-      margin: 0;
-      padding: 0;
       font-family: 'Segoe UI', sans-serif;
       background: linear-gradient(135deg, #667eea, #764ba2);
-      color: #fff;
+      margin: 0;
+      padding: 0;
       display: flex;
       justify-content: center;
       align-items: center;
       min-height: 100vh;
     }
     .container {
-      background-color: #fff;
-      color: #333;
+      background: white;
       padding: 30px;
-      border-radius: 16px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-      width: 100%;
+      border-radius: 15px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
       max-width: 500px;
+      width: 100%;
     }
     h1 {
       text-align: center;
-      margin-bottom: 20px;
       color: #4c51bf;
     }
-    input[type="text"] {
+    input[type="text"], input[type="file"] {
       width: 100%;
-      padding: 10px;
-      margin-bottom: 10px;
+      padding: 12px;
+      margin: 10px 0;
       border: 1px solid #ccc;
-      border-radius: 8px;
-      font-size: 14px;
+      border-radius: 10px;
     }
     button {
       width: 100%;
-      padding: 10px;
-      background-color: #4c51bf;
-      color: #fff;
+      padding: 12px;
+      margin: 8px 0;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       font-size: 16px;
       cursor: pointer;
-      margin-bottom: 10px;
+      background: #4c51bf;
+      color: white;
+      transition: background 0.3s;
     }
     button:hover {
-      background-color: #5a67d8;
+      background: #5a67d8;
     }
     #status {
-      margin-top: 15px;
-      font-weight: bold;
       text-align: center;
+      font-weight: bold;
+      margin-top: 15px;
+      color: #333;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Certificate Registry</h1>
-    <button onclick="connectWallet()">🔗 Connect Wallet</button>
-    <input type="text" id="certData" placeholder="Enter certificate text or ID" />
-    <button onclick="generateHash()">🧾 Generate Hash</button>
-    <input type="text" id="certHash" placeholder="Certificate SHA-256 Hash" readonly />
+    <button id="connectBtn" onclick="connectWallet()">🔗 Connect Wallet</button>
+    <input type="file" id="pdfInput" accept="application/pdf" />
+    <button onclick="generateHashFromPDF()">🧾 Generate Hash from PDF</button>
+    <input type="text" id="certHash" placeholder="Generated SHA-256 Hash" readonly />
 
-    <button onclick="issueCert()">✅ Issue Certificate</button>
-    <button onclick="revokeCert()">❌ Revoke Certificate</button>
-    <button onclick="verifyCert()">🔍 Verify Certificate</button>
+    <button onclick="issueCert()" disabled id="issueBtn">✅ Issue Certificate</button>
+    <button onclick="revokeCert()" disabled id="revokeBtn">❌ Revoke Certificate</button>
+    <button onclick="verifyCert()" disabled id="verifyBtn">🔍 Verify Certificate</button>
 
-    <div id="status"></div>
+    <div id="status">🔌 Wallet not connected</div>
   </div>
 
   <script>
-    let provider;
-    let signer;
-    let contract;
+    let provider, signer, contract;
 
-    const contractAddress = "0x5ED0bEB3ef367DB79712Fb7524933a7119FAbA1E";
+    const contractAddress = "0x253B1283b1019784fE2E8126B33BEC5571144d63";
     const contractABI = [
       {
         "inputs": [{ "internalType": "bytes32", "name": "certHash", "type": "bytes32" }],
@@ -106,58 +102,86 @@
     ];
 
     async function connectWallet() {
-      if (window.ethereum) {
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        await provider.send("eth_requestAccounts", []);
-        signer = provider.getSigner();
-        contract = new ethers.Contract(contractAddress, contractABI, signer);
-        document.getElementById("status").innerText = "✅ Wallet connected.";
+      if (typeof window.ethereum !== "undefined") {
+        try {
+          provider = new ethers.providers.Web3Provider(window.ethereum);
+          await provider.send("eth_requestAccounts", []);
+          signer = provider.getSigner();
+          contract = new ethers.Contract(contractAddress, contractABI, signer);
+          document.getElementById("status").innerText = "✅ Wallet connected.";
+          // Enable buttons
+          document.getElementById("issueBtn").disabled = false;
+          document.getElementById("revokeBtn").disabled = false;
+          document.getElementById("verifyBtn").disabled = false;
+        } catch (error) {
+          console.error(error);
+          document.getElementById("status").innerText = "❌ Wallet connection failed.";
+        }
       } else {
-        alert("Please install MetaMask.");
+        alert("❌ MetaMask not detected. Please install it.");
       }
     }
 
-    function generateHash() {
-      const input = document.getElementById("certData").value;
-      if (!input) return alert("Please enter certificate content.");
-      const hash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(input));
-      document.getElementById("certHash").value = hash;
+    async function generateHashFromPDF() {
+      const fileInput = document.getElementById("pdfInput");
+      const file = fileInput.files[0];
+      if (!file) return alert("⚠️ Please upload a PDF file.");
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const arrayBuffer = event.target.result;
+        const bytes = new Uint8Array(arrayBuffer);
+        const hash = ethers.utils.keccak256(bytes);
+        document.getElementById("certHash").value = hash;
+        document.getElementById("status").innerText = "✅ Hash generated.";
+      };
+      reader.onerror = function(err) {
+        console.error(err);
+        alert("❌ Error reading PDF file.");
+      };
+      reader.readAsArrayBuffer(file);
     }
 
     async function issueCert() {
+      if (!contract) return alert("⚠️ Wallet not connected.");
+      const hash = document.getElementById("certHash").value;
+      if (!hash) return alert("⚠️ No hash provided.");
       try {
-        const hash = document.getElementById("certHash").value;
         const tx = await contract.issueCertificate(hash);
         await tx.wait();
         document.getElementById("status").innerText = "✅ Certificate issued.";
       } catch (err) {
         console.error(err);
-        alert("Error issuing certificate.");
+        alert("❌ Error issuing certificate.");
       }
     }
 
     async function revokeCert() {
+      if (!contract) return alert("⚠️ Wallet not connected.");
+      const hash = document.getElementById("certHash").value;
+      if (!hash) return alert("⚠️ No hash provided.");
       try {
-        const hash = document.getElementById("certHash").value;
         const tx = await contract.revokeCertificate(hash);
         await tx.wait();
         document.getElementById("status").innerText = "⚠️ Certificate revoked.";
       } catch (err) {
         console.error(err);
-        alert("Error revoking certificate.");
+        alert("❌ Error revoking certificate.");
       }
     }
 
     async function verifyCert() {
+      if (!contract) return alert("⚠️ Wallet not connected.");
+      const hash = document.getElementById("certHash").value;
+      if (!hash) return alert("⚠️ No hash provided.");
       try {
-        const hash = document.getElementById("certHash").value;
         const isValid = await contract.verifyCertificate(hash);
         document.getElementById("status").innerText = isValid
-          ? "✅ Certificate is VALID"
-          : "❌ Certificate is INVALID or REVOKED";
+          ? "✅ Certificate is VALID."
+          : "❌ Certificate is INVALID or REVOKED.";
       } catch (err) {
         console.error(err);
-        alert("Error verifying certificate.");
+        alert("❌ Error verifying certificate.");
       }
     }
   </script>
