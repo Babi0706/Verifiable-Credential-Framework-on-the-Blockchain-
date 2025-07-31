@@ -7,60 +7,148 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      padding: 30px;
-      background: #f0f0f0;
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(to right, #f7f8fc, #e0eafc);
+      color: #333;
     }
-    .container {
-      max-width: 600px;
-      background: white;
+
+    .header {
+      background: #3f51b5;
+      color: white;
       padding: 20px;
-      margin: auto;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      text-align: center;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      position: relative;
+    }
+
+    .wallet-btn {
+      position: absolute;
+      right: 20px;
+      top: 20px;
+      background-color: #ff9800;
+      border: none;
+      padding: 10px 20px;
+      color: white;
+      font-weight: bold;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .wallet-btn:hover {
+      background-color: #fb8c00;
+    }
+
+    .container {
+      max-width: 700px;
+      background: white;
+      padding: 30px;
+      margin: 50px auto;
+      border-radius: 15px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
       text-align: center;
     }
-    input, button {
-      margin: 10px 0;
-      padding: 10px;
-      width: 80%;
-    }
-    canvas {
-      margin-top: 15px;
-    }
+
+    input[type="file"],
+    input[type="text"],
     button {
+      margin: 15px 0;
+      padding: 12px;
+      width: 90%;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      box-sizing: border-box;
+    }
+
+    input[type="text"]:readonly {
+      background: #f0f0f0;
+    }
+
+    button {
+      background-color: #3f51b5;
+      color: white;
+      border: none;
       cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background-color: #303f9f;
+    }
+
+    canvas {
+      margin-top: 20px;
+    }
+
+    #qrShareOptions button {
+      width: auto;
+      margin: 5px;
+      background-color: #009688;
+    }
+
+    #qrShareOptions button:hover {
+      background-color: #00796b;
+    }
+
+    .note {
+      color: #888;
+      font-size: 14px;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
 
-<div class="container">
-  <h2>📄 Certificate Verification</h2>
+<div class="header">
+  <h2>📄 Blockchain Certificate Verifier</h2>
+  <button class="wallet-btn" onclick="connectWallet()">🔗 Connect Wallet</button>
+</div>
 
+<div class="container">
   <input type="file" id="pdfInput" accept=".pdf"><br>
-  <button onclick="generateHashFromPDF()">🔐 Generate Hash</button>
+  <button onclick="generateHashFromPDF()">🔐 Generate SHA-256 Hash</button>
 
   <input type="text" id="certHash" placeholder="Certificate Hash" readonly><br>
 
-  <div id="qrContainer" style="margin-top:20px;">
+  <div id="qrContainer">
     <canvas id="qrCode"></canvas>
   </div>
 
-  <div style="margin-top:10px;">
+  <div>
     <button onclick="downloadQRCode()">📥 Download QR Code</button>
   </div>
 
-  <div id="qrShareOptions" style="margin-top:10px; display:none;">
+  <div id="qrShareOptions" style="display:none;">
     <p>🔗 Share QR Code:</p>
     <button onclick="copyQRLink()">📋 Copy QR Link</button>
     <button onclick="openQRInTab()">🌐 Open QR</button>
     <button onclick="shareQR()">📤 Share</button>
   </div>
+
+  <div class="note">Ensure MetaMask is installed to connect your wallet.</div>
 </div>
 
 <script>
   let generatedHash = "";
+  let web3;
+
+  async function connectWallet() {
+    if (window.ethereum) {
+      try {
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+        const walletButton = document.querySelector('.wallet-btn');
+        walletButton.textContent = "🦊 Connected: " + accounts[0].slice(0, 6) + "..." + accounts[0].slice(-4);
+        walletButton.style.backgroundColor = '#4caf50';
+        web3 = new Web3(window.ethereum);
+      } catch (error) {
+        alert("Connection rejected by user.");
+      }
+    } else {
+      alert("MetaMask not found. Please install MetaMask extension.");
+    }
+  }
 
   function sha256(buffer) {
     const crypto = window.crypto || window.msCrypto;
@@ -87,7 +175,6 @@
       generatedHash = "0x" + hashHex;
       document.getElementById("certHash").value = generatedHash;
 
-      // Generate QR code
       QRCode.toCanvas(document.getElementById("qrCode"), generatedHash, function (error) {
         if (error) console.error(error);
         document.getElementById("qrShareOptions").style.display = "block";
