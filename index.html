@@ -2,253 +2,165 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Certificate Registry DApp</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Blockchain Certificate Verification</title>
   <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
   <style>
     body {
-      background: linear-gradient(to right, #00c6ff, #0072ff);
-      font-family: 'Segoe UI', sans-serif;
+      font-family: Arial, sans-serif;
+      background: #f9f9f9;
       text-align: center;
-      margin: 0;
-      padding: 0;
+      padding: 2rem;
     }
 
     h1 {
-      color: white;
-      margin-top: 20px;
-      font-size: 36px;
-    }
-
-    #connectButton {
-      background-color: #ffdf45;
-      border: none;
-      padding: 12px 20px;
-      font-size: 16px;
-      border-radius: 12px;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-      margin-top: 10px;
-      margin-bottom: 30px;
-    }
-
-    #connectButton:hover {
-      background-color: #ffe769;
-    }
-
-    .container {
-      background-color: #29b6f6;
-      border-radius: 16px;
-      padding: 40px;
-      margin: auto;
-      width: 50%;
-      max-width: 600px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-    }
-
-    input[type="file"], input[type="text"] {
-      margin: 10px 0;
-      padding: 12px;
-      width: 90%;
-      border-radius: 8px;
-      border: none;
-      font-size: 16px;
+      font-size: 2rem;
+      margin-bottom: 1rem;
     }
 
     button {
-      width: 97%;
-      margin: 10px 0;
-      padding: 15px;
+      padding: 10px 25px;
+      margin: 8px;
+      font-size: 16px;
+      border-radius: 8px;
       border: none;
-      border-radius: 10px;
-      font-size: 18px;
-      background-color: #ffdf45;
+      background-color: #007bff;
+      color: white;
       cursor: pointer;
-      transition: background-color 0.3s;
     }
 
     button:hover {
-      background-color: #ffe769;
+      background-color: #0056b3;
     }
 
-    #issuedList {
-      background: white;
-      margin-top: 20px;
-      border-radius: 10px;
+    input {
       padding: 10px;
-      max-height: 200px;
-      overflow-y: auto;
-      font-size: 14px;
-      text-align: left;
-    }
-
-    .hash-item {
-      margin: 5px 0;
-      word-break: break-all;
-      padding: 4px;
+      margin: 10px;
+      width: 300px;
     }
 
     #status {
-      color: white;
-      margin: 10px;
+      margin-top: 20px;
       font-weight: bold;
+    }
+
+    #issuedHashes {
+      margin-top: 20px;
+      text-align: left;
+      width: fit-content;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .hash-item {
+      background: #eee;
+      padding: 8px;
+      border-radius: 5px;
+      margin-bottom: 5px;
     }
   </style>
 </head>
 <body>
-  <h1>Certificate Registry DApp</h1>
-  <button id="connectButton">🔗 Connect Wallet</button>
-  <div id="status">🔌 Wallet not connected</div>
+  <h1>Blockchain Certificate Verification</h1>
 
-  <div class="container">
-    <input type="file" id="fileInput" accept=".pdf" />
-    <button onclick="generateHash()">📄 Generate Hash from PDF</button>
-    <input type="text" id="hashInput" placeholder="Certificate Hash" />
+  <button onclick="connectWallet()">🔗 Connect Wallet</button>
+  <p id="walletStatus">⏳ Not Connected</p>
+
+  <input id="hashInput" placeholder="Enter certificate SHA-256 hash" />
+
+  <div>
     <button onclick="issueCert()">✅ Issue Certificate</button>
-    <button onclick="revokeCert()">❌ Revoke Certificate</button>
     <button onclick="verifyCert()">🔍 Verify Certificate</button>
-
-    <div id="issuedList">
-      <strong>📝 Issued Hashes:</strong>
-      <div id="hashes"></div>
-    </div>
+    <button onclick="revokeCert()">❌ Revoke Certificate</button>
   </div>
 
+  <div id="status"></div>
+
+  <h3>Issued Certificate Hashes</h3>
+  <div id="issuedHashes"></div>
+
   <script>
-    let web3;
-    let account;
+    const abi = [/* your ABI goes here */];
     const contractAddress = "0x8df5b74f5aA6DF84870e9A29ED0569008A6a3733";
-    const abi = [
-      {
-        "inputs": [],
-        "stateMutability": "nonpayable",
-        "type": "constructor"
-      },
-      {
-        "anonymous": false,
-        "inputs": [
-          { "indexed": true, "internalType": "bytes32", "name": "certHash", "type": "bytes32" },
-          { "indexed": true, "internalType": "address", "name": "issuer", "type": "address" }
-        ],
-        "name": "CertificateIssued",
-        "type": "event"
-      },
-      {
-        "anonymous": false,
-        "inputs": [
-          { "indexed": true, "internalType": "bytes32", "name": "certHash", "type": "bytes32" },
-          { "indexed": true, "internalType": "address", "name": "revoker", "type": "address" }
-        ],
-        "name": "CertificateRevoked",
-        "type": "event"
-      },
-      {
-        "inputs": [{ "internalType": "bytes32", "name": "certHash", "type": "bytes32" }],
-        "name": "issueCertificate",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-      },
-      {
-        "inputs": [{ "internalType": "bytes32", "name": "certHash", "type": "bytes32" }],
-        "name": "revokeCertificate",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-      },
-      {
-        "inputs": [{ "internalType": "bytes32", "name": "certHash", "type": "bytes32" }],
-        "name": "verifyCertificate",
-        "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
-        "stateMutability": "view",
-        "type": "function"
-      },
-      {
-        "inputs": [],
-        "name": "owner",
-        "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
-        "stateMutability": "view",
-        "type": "function"
-      },
-      {
-        "inputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
-        "name": "validCertificates",
-        "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
-        "stateMutability": "view",
-        "type": "function"
-      }
-    ];
-    let contract;
+    let web3, contract, account, owner;
 
     async function connectWallet() {
-      if (typeof window.ethereum !== 'undefined') {
+      if (window.ethereum) {
+        web3 = new Web3(window.ethereum);
         try {
-          web3 = new Web3(window.ethereum);
-          await window.ethereum.request({ method: 'eth_requestAccounts' });
-          const accounts = await web3.eth.getAccounts();
+          const accounts = await ethereum.request({ method: "eth_requestAccounts" });
           account = accounts[0];
+          document.getElementById("walletStatus").innerText = "✅ Wallet Connected: " + account;
           contract = new web3.eth.Contract(abi, contractAddress);
-          document.getElementById("connectButton").innerText = "✅ Wallet Connected";
-          document.getElementById("status").innerText = `🟢 Connected: ${account}`;
-        } catch (error) {
-          document.getElementById("status").innerText = "❌ Connection failed";
-          alert("Connection to wallet failed");
+          owner = await contract.methods.owner().call();
+        } catch (err) {
+          document.getElementById("walletStatus").innerText = "❌ Connection Failed";
+          console.error(err);
         }
       } else {
-        alert("Please install MetaMask!");
-        document.getElementById("status").innerText = "❌ MetaMask not found";
+        alert("Install MetaMask to use this DApp.");
       }
     }
 
-    async function generateHash() {
-      const file = document.getElementById("fileInput").files[0];
-      if (!file) return alert("Please select a file");
-      const arrayBuffer = await file.arrayBuffer();
-      const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hashHex = "0x" + hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
-      document.getElementById("hashInput").value = hashHex;
+    function getHashInput() {
+      const hash = document.getElementById("hashInput").value.trim();
+      if (!/^0x[0-9a-fA-F]{64}$/.test(hash)) {
+        alert("❌ Invalid SHA-256 hash format.");
+        throw new Error("Invalid hash");
+      }
+      return hash;
     }
 
     async function issueCert() {
-      const hash = document.getElementById("hashInput").value;
+      const hash = getHashInput();
+      if (account.toLowerCase() !== owner.toLowerCase()) {
+        alert("❌ Only the contract owner can issue certificates.");
+        return;
+      }
       try {
         await contract.methods.issueCertificate(hash).send({ from: account });
+        document.getElementById("status").innerText = "✅ Certificate Issued.";
         addToIssuedList(hash);
-        alert("✅ Certificate Issued!");
       } catch (e) {
-        alert("❌ Error issuing certificate");
-      }
-    }
-
-    async function revokeCert() {
-      const hash = document.getElementById("hashInput").value;
-      try {
-        await contract.methods.revokeCertificate(hash).send({ from: account });
-        alert("❌ Certificate Revoked");
-      } catch (e) {
-        alert("⚠️ Error revoking certificate");
+        console.error("Issue error:", e);
+        alert("❌ Error issuing certificate: " + (e?.message || ""));
       }
     }
 
     async function verifyCert() {
-      const hash = document.getElementById("hashInput").value;
+      const hash = getHashInput();
       try {
-        const isValid = await contract.methods.verifyCertificate(hash).call();
-        alert(isValid ? "✅ Certificate is valid" : "❌ Certificate is not valid");
+        const result = await contract.methods.verifyCertificate(hash).call();
+        document.getElementById("status").innerText = result
+          ? "✅ Certificate is VALID."
+          : "❌ Certificate is NOT valid.";
       } catch (e) {
-        alert("⚠️ Error verifying certificate");
+        console.error("Verify error:", e);
+        alert("❌ Verification failed.");
+      }
+    }
+
+    async function revokeCert() {
+      const hash = getHashInput();
+      if (account.toLowerCase() !== owner.toLowerCase()) {
+        alert("❌ Only the contract owner can revoke certificates.");
+        return;
+      }
+      try {
+        await contract.methods.revokeCertificate(hash).send({ from: account });
+        document.getElementById("status").innerText = "⚠️ Certificate Revoked.";
+      } catch (e) {
+        console.error("Revoke error:", e);
+        alert("❌ Error revoking certificate.");
       }
     }
 
     function addToIssuedList(hash) {
-      const list = document.getElementById("hashes");
-      const item = document.createElement("div");
-      item.className = "hash-item";
-      item.innerText = hash;
-      list.prepend(item);
+      const div = document.createElement("div");
+      div.className = "hash-item";
+      div.innerText = hash;
+      document.getElementById("issuedHashes").prepend(div);
     }
-
-    document.getElementById("connectButton").onclick = connectWallet;
   </script>
 </body>
 </html>
