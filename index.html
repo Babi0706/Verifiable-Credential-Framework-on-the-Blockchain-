@@ -2,258 +2,177 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Blockchain Certificate Verifier</title>
-  <script src="https://cdn.jsdelivr.net/npm/web3@1.8.2/dist/web3.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+  <title>Certificate Registry DApp</title>
+  <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
   <style>
     body {
+      background: linear-gradient(to right, #00c6ff, #0072ff);
       font-family: 'Segoe UI', sans-serif;
-      padding: 30px;
-      background: #e9f0f4;
-    }
-    .container {
-      max-width: 700px;
-      background: white;
-      padding: 25px;
-      margin: auto;
-      border-radius: 15px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
       text-align: center;
+      padding-top: 50px;
     }
-    input, button {
-      margin: 10px 0;
-      padding: 10px;
-      width: 80%;
-      font-size: 16px;
+
+    .container {
+      background: #28c8f2;
+      padding: 30px;
+      border-radius: 20px;
+      display: inline-block;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
     }
-    button {
-      cursor: pointer;
-      background: #0077cc;
+
+    h1 {
       color: white;
+      margin-bottom: 30px;
+    }
+
+    input[type="file"],
+    input[type="text"] {
+      padding: 10px;
+      margin: 10px 0;
+      width: 80%;
+      border-radius: 10px;
       border: none;
-      border-radius: 5px;
     }
+
+    button {
+      display: block;
+      background-color: #ffdf45;
+      border: none;
+      padding: 15px 20px;
+      margin: 10px auto;
+      border-radius: 12px;
+      font-size: 16px;
+      width: 80%;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
     button:hover {
-      background: #005fa3;
+      background-color: #ffe769;
     }
-    #walletStatus {
+
+    .status-bar {
+      margin-top: 25px;
+      padding: 12px;
+      background-color: white;
+      border-radius: 12px;
       font-weight: bold;
-      color: green;
+      color: #222;
     }
+
+    .status-success { color: green; }
+    .status-error { color: red; }
+    .status-info { color: #0072ff; }
   </style>
 </head>
 <body>
 
-<div class="container">
-  <h2>🔐 Blockchain Certificate Verifier</h2>
-  <p id="walletStatus">🔌 Connecting to MetaMask...</p>
+  <h1 style="text-align:left; margin-left: 20px;">Certificate Registry DApp</h1>
 
-  <input type="file" id="pdfInput" accept=".pdf"><br>
-  <button onclick="generateHashFromPDF()">📁 Generate Certificate Hash</button>
-  <input type="text" id="certHash" placeholder="Certificate Hash" readonly><br>
-
-  <div id="qrContainer" style="margin-top:20px;">
-    <canvas id="qrCode"></canvas>
-  </div>
-  <div style="margin-top:10px;">
-    <button onclick="downloadQRCode()">📥 Download QR</button>
+  <div style="text-align: right; margin: -40px 20px 20px 0;">
+    <button id="connectButton" style="background-color: #ffdf45;">🔗 Connect Wallet</button>
   </div>
 
-  <div id="qrShareOptions" style="margin-top:10px; display:none;">
-    <p>🔗 Share QR Code:</p>
-    <button onclick="copyQRLink()">📋 Copy</button>
-    <button onclick="openQRInTab()">🌐 Open</button>
-    <button onclick="shareQR()">📤 Share</button>
+  <div class="container">
+    <input type="file" id="pdfFile" accept=".pdf">
+    <button onclick="generateHash()">📄 Generate Hash from PDF</button>
+
+    <input type="text" id="hashInput" placeholder="Certificate Hash" />
+
+    <button onclick="issueCertificate()">✅ Issue Certificate</button>
+    <button onclick="revokeCertificate()">❌ Revoke Certificate</button>
+    <button onclick="verifyCertificate()">🔍 Verify Certificate</button>
+
+    <div id="status" class="status-bar">Status: 🔄 Waiting for action…</div>
   </div>
 
-  <hr><br>
+  <script>
+    let web3;
+    let contract;
+    let accounts;
 
-  <button onclick="issueCertificate()">✅ Issue Certificate</button><br>
-  <button onclick="verifyCertificate()">🔍 Verify Certificate</button><br>
-  <button onclick="revokeCertificate()">❌ Revoke Certificate</button><br>
+    const contractAddress = "0x8df5b74f5aA6DF84870e9A29ED0569008A6a3733"; // Replace with your actual address
+    const contractABI = [/* paste your ABI here */];
 
-  <p id="statusMessage" style="margin-top:20px; font-weight: bold;"></p>
-</div>
-
-<script>
-  let web3;
-  let contract;
-  let accounts = [];
-  let generatedHash = "";
-
-  const contractAddress = "0x8df5b74f5aA6DF84870e9A29ED0569008A6a3733";
-  const abi = [
-    { "inputs": [], "stateMutability": "nonpayable", "type": "constructor" },
-    {
-      "anonymous": false,
-      "inputs": [
-        { "indexed": false, "internalType": "bytes32", "name": "certHash", "type": "bytes32" },
-        { "indexed": true, "internalType": "address", "name": "issuer", "type": "address" }
-      ],
-      "name": "CertificateIssued",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        { "indexed": false, "internalType": "bytes32", "name": "certHash", "type": "bytes32" },
-        { "indexed": true, "internalType": "address", "name": "revoker", "type": "address" }
-      ],
-      "name": "CertificateRevoked",
-      "type": "event"
-    },
-    {
-      "inputs": [{ "internalType": "bytes32", "name": "certHash", "type": "bytes32" }],
-      "name": "issueCertificate",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [{ "internalType": "bytes32", "name": "certHash", "type": "bytes32" }],
-      "name": "revokeCertificate",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "owner",
-      "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
-      "name": "validCertificates",
-      "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [{ "internalType": "bytes32", "name": "certHash", "type": "bytes32" }],
-      "name": "verifyCertificate",
-      "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
-      "stateMutability": "view",
-      "type": "function"
+    async function connectWallet() {
+      if (window.ethereum) {
+        web3 = new Web3(window.ethereum);
+        try {
+          accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          contract = new web3.eth.Contract(contractABI, contractAddress);
+          updateStatus("✅ Wallet Connected: " + accounts[0], "status-success");
+        } catch (error) {
+          updateStatus("❌ Connection rejected", "status-error");
+        }
+      } else {
+        updateStatus("❌ MetaMask not detected", "status-error");
+      }
     }
-  ];
 
-  async function connectWallet() {
-    if (window.ethereum) {
-      web3 = new Web3(window.ethereum);
+    async function generateHash() {
+      const fileInput = document.getElementById('pdfFile');
+      const file = fileInput.files[0];
+      if (!file) return updateStatus("❌ No file selected", "status-error");
+
+      const reader = new FileReader();
+      reader.onload = async function (event) {
+        const hashBuffer = await crypto.subtle.digest('SHA-256', event.target.result);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = '0x' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        document.getElementById('hashInput').value = hashHex;
+        updateStatus("✅ Hash generated", "status-success");
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    async function issueCertificate() {
+      const hash = document.getElementById('hashInput').value;
+      if (!hash) return updateStatus("❌ Enter a hash first", "status-error");
+      updateStatus("⏳ Issuing certificate…", "status-info");
       try {
-        accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        contract = new web3.eth.Contract(abi, contractAddress);
-        document.getElementById("walletStatus").innerText = "🟢 Wallet Connected: " + accounts[0];
-      } catch (error) {
-        document.getElementById("walletStatus").innerText = "❌ Wallet connection failed.";
+        await contract.methods.issueCertificate(hash).send({ from: accounts[0] });
+        updateStatus("✅ Certificate issued successfully", "status-success");
+      } catch (err) {
+        updateStatus("❌ Error issuing certificate", "status-error");
       }
-    } else {
-      document.getElementById("walletStatus").innerText = "⚠️ MetaMask not found.";
     }
-  }
 
-  connectWallet();
-
-  function sha256(buffer) {
-    const crypto = window.crypto || window.msCrypto;
-    return crypto.subtle.digest("SHA-256", buffer).then(hash => {
-      let hex = "";
-      const view = new DataView(hash);
-      for (let i = 0; i < view.byteLength; i += 4) {
-        hex += ("00000000" + view.getUint32(i).toString(16)).slice(-8);
+    async function revokeCertificate() {
+      const hash = document.getElementById('hashInput').value;
+      if (!hash) return updateStatus("❌ Enter a hash first", "status-error");
+      updateStatus("⏳ Revoking certificate…", "status-info");
+      try {
+        await contract.methods.revokeCertificate(hash).send({ from: accounts[0] });
+        updateStatus("✅ Certificate revoked successfully", "status-success");
+      } catch (err) {
+        updateStatus("❌ Error revoking certificate", "status-error");
       }
-      return hex;
-    });
-  }
-
-  async function generateHashFromPDF() {
-    const file = document.getElementById("pdfInput").files[0];
-    if (!file) return alert("Please upload a PDF.");
-    const reader = new FileReader();
-    reader.onload = async function (event) {
-      const arrayBuffer = event.target.result;
-      const hashHex = await sha256(arrayBuffer);
-      generatedHash = "0x" + hashHex;
-      document.getElementById("certHash").value = generatedHash;
-      QRCode.toCanvas(document.getElementById("qrCode"), generatedHash, error => {
-        if (error) console.error(error);
-        document.getElementById("qrShareOptions").style.display = "block";
-      });
-    };
-    reader.readAsArrayBuffer(file);
-  }
-
-  function downloadQRCode() {
-    const canvas = document.getElementById("qrCode");
-    const link = document.createElement("a");
-    link.download = "certificate-qr.png";
-    link.href = canvas.toDataURL("image/png");
-    link.click();
-  }
-
-  function copyQRLink() {
-    if (!generatedHash) return alert("No QR code generated yet.");
-    navigator.clipboard.writeText(generatedHash).then(() => {
-      alert("Hash copied to clipboard!");
-    });
-  }
-
-  function openQRInTab() {
-    if (!generatedHash) return alert("No QR code generated yet.");
-    QRCode.toDataURL(generatedHash, (err, url) => {
-      const win = window.open();
-      win.document.write(`<img src="${url}" alt="QR Code">`);
-    });
-  }
-
-  function shareQR() {
-    if (!generatedHash) return alert("No QR code generated yet.");
-    const shareText = "Verify this certificate using this hash: " + generatedHash;
-    if (navigator.share) {
-      navigator.share({
-        title: "Certificate QR",
-        text: shareText,
-        url: window.location.href
-      });
-    } else {
-      alert("Sharing not supported.");
     }
-  }
 
-  async function issueCertificate() {
-    if (!generatedHash) return alert("Generate certificate hash first.");
-    try {
-      await contract.methods.issueCertificate(generatedHash).send({ from: accounts[0] });
-      document.getElementById("statusMessage").innerText = "✅ Certificate issued successfully!";
-    } catch (err) {
-      document.getElementById("statusMessage").innerText = "❌ Error issuing certificate.";
+    async function verifyCertificate() {
+      const hash = document.getElementById('hashInput').value;
+      if (!hash) return updateStatus("❌ Enter a hash first", "status-error");
+      updateStatus("⏳ Verifying certificate…", "status-info");
+      try {
+        const result = await contract.methods.verifyCertificate(hash).call();
+        if (result) {
+          updateStatus("✅ Certificate is valid", "status-success");
+        } else {
+          updateStatus("❌ Certificate is invalid or revoked", "status-error");
+        }
+      } catch (err) {
+        updateStatus("❌ Error verifying certificate", "status-error");
+      }
     }
-  }
 
-  async function verifyCertificate() {
-    if (!generatedHash) return alert("Generate certificate hash first.");
-    try {
-      const result = await contract.methods.verifyCertificate(generatedHash).call();
-      document.getElementById("statusMessage").innerText = result
-        ? "✅ Certificate is VALID!"
-        : "❌ Certificate is INVALID!";
-    } catch (err) {
-      document.getElementById("statusMessage").innerText = "❌ Verification failed.";
+    function updateStatus(message, className) {
+      const statusEl = document.getElementById('status');
+      statusEl.textContent = "Status: " + message;
+      statusEl.className = `status-bar ${className}`;
     }
-  }
 
-  async function revokeCertificate() {
-    if (!generatedHash) return alert("Generate certificate hash first.");
-    try {
-      await contract.methods.revokeCertificate(generatedHash).send({ from: accounts[0] });
-      document.getElementById("statusMessage").innerText = "⚠️ Certificate revoked.";
-    } catch (err) {
-      document.getElementById("statusMessage").innerText = "❌ Error revoking certificate.";
-    }
-  }
-</script>
+    document.getElementById("connectButton").addEventListener("click", connectWallet);
+  </script>
 
 </body>
 </html>
