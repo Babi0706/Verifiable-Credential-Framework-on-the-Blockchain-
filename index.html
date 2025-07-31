@@ -4,114 +4,161 @@
   <meta charset="UTF-8">
   <title>Blockchain Certificate Verifier</title>
   <script src="https://cdn.jsdelivr.net/npm/web3@1.8.2/dist/web3.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
       padding: 30px;
-      background: #eef2f5;
+      background: #e9f0f4;
     }
     .container {
-      max-width: 600px;
+      max-width: 700px;
       background: white;
-      padding: 20px;
+      padding: 25px;
       margin: auto;
       border-radius: 15px;
-      box-shadow: 0 0 15px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
       text-align: center;
     }
-    h2 {
-      margin-bottom: 20px;
-      color: #333;
-    }
-    input[type="file"], input[type="text"], button {
+    input, button {
       margin: 10px 0;
       padding: 10px;
       width: 80%;
-      border: 1px solid #ccc;
-      border-radius: 5px;
+      font-size: 16px;
     }
     button {
-      background-color: #4CAF50;
+      cursor: pointer;
+      background: #0077cc;
       color: white;
-      font-weight: bold;
       border: none;
-      transition: 0.3s;
+      border-radius: 5px;
     }
     button:hover {
-      background-color: #45a049;
+      background: #005fa3;
     }
-    #status, #connectionStatus {
-      margin-top: 20px;
+    #walletStatus {
       font-weight: bold;
-      color: #444;
-    }
-    canvas {
-      margin-top: 15px;
+      color: green;
     }
   </style>
 </head>
 <body>
 
 <div class="container">
-  <h2>📄 Blockchain Certificate Verifier</h2>
-
-  <button onclick="connectWallet()">🔗 Connect MetaMask Wallet</button>
-  <div id="status">Not Connected</div>
-  <div id="connectionStatus">🔌 Wallet Status: <span id="walletIndicator">Not Connected ❌</span></div>
-
-  <hr style="margin: 30px 0;">
+  <h2>🔐 Blockchain Certificate Verifier</h2>
+  <p id="walletStatus">🔌 Connecting to MetaMask...</p>
 
   <input type="file" id="pdfInput" accept=".pdf"><br>
-  <button onclick="generateHashFromPDF()">🔐 Generate SHA-256 Hash</button>
-
+  <button onclick="generateHashFromPDF()">📁 Generate Certificate Hash</button>
   <input type="text" id="certHash" placeholder="Certificate Hash" readonly><br>
 
   <div id="qrContainer" style="margin-top:20px;">
     <canvas id="qrCode"></canvas>
   </div>
-
   <div style="margin-top:10px;">
-    <button onclick="downloadQRCode()">📥 Download QR Code</button>
+    <button onclick="downloadQRCode()">📥 Download QR</button>
   </div>
 
   <div id="qrShareOptions" style="margin-top:10px; display:none;">
     <p>🔗 Share QR Code:</p>
-    <button onclick="copyQRLink()">📋 Copy QR Link</button>
-    <button onclick="openQRInTab()">🌐 Open QR</button>
+    <button onclick="copyQRLink()">📋 Copy</button>
+    <button onclick="openQRInTab()">🌐 Open</button>
     <button onclick="shareQR()">📤 Share</button>
   </div>
+
+  <hr><br>
+
+  <button onclick="issueCertificate()">✅ Issue Certificate</button><br>
+  <button onclick="verifyCertificate()">🔍 Verify Certificate</button><br>
+  <button onclick="revokeCertificate()">❌ Revoke Certificate</button><br>
+
+  <p id="statusMessage" style="margin-top:20px; font-weight: bold;"></p>
 </div>
 
 <script>
+  let web3;
+  let contract;
+  let accounts = [];
   let generatedHash = "";
-  let provider, signer, contract;
+
+  const contractAddress = "0x8df5b74f5aA6DF84870e9A29ED0569008A6a3733";
+  const abi = [
+    { "inputs": [], "stateMutability": "nonpayable", "type": "constructor" },
+    {
+      "anonymous": false,
+      "inputs": [
+        { "indexed": false, "internalType": "bytes32", "name": "certHash", "type": "bytes32" },
+        { "indexed": true, "internalType": "address", "name": "issuer", "type": "address" }
+      ],
+      "name": "CertificateIssued",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        { "indexed": false, "internalType": "bytes32", "name": "certHash", "type": "bytes32" },
+        { "indexed": true, "internalType": "address", "name": "revoker", "type": "address" }
+      ],
+      "name": "CertificateRevoked",
+      "type": "event"
+    },
+    {
+      "inputs": [{ "internalType": "bytes32", "name": "certHash", "type": "bytes32" }],
+      "name": "issueCertificate",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [{ "internalType": "bytes32", "name": "certHash", "type": "bytes32" }],
+      "name": "revokeCertificate",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+      "name": "validCertificates",
+      "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [{ "internalType": "bytes32", "name": "certHash", "type": "bytes32" }],
+      "name": "verifyCertificate",
+      "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ];
 
   async function connectWallet() {
-    if (!window.ethereum) {
-      document.getElementById("walletIndicator").innerText = "MetaMask Not Found 🚫";
-      return alert("MetaMask not found. Please install it.");
-    }
-
-    try {
-      provider = new ethers.providers.Web3Provider(window.ethereum);
-      await provider.send("eth_requestAccounts", []);
-      signer = provider.getSigner();
-      const address = await signer.getAddress();
-      document.getElementById("status").innerText = `Connected: ${address}`;
-      document.getElementById("walletIndicator").innerText = "Connected ✅";
-    } catch (err) {
-      console.error(err);
-      document.getElementById("walletIndicator").innerText = "Connection Failed ❌";
-      document.getElementById("status").innerText = "Wallet connection failed.";
+    if (window.ethereum) {
+      web3 = new Web3(window.ethereum);
+      try {
+        accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        contract = new web3.eth.Contract(abi, contractAddress);
+        document.getElementById("walletStatus").innerText = "🟢 Wallet Connected: " + accounts[0];
+      } catch (error) {
+        document.getElementById("walletStatus").innerText = "❌ Wallet connection failed.";
+      }
+    } else {
+      document.getElementById("walletStatus").innerText = "⚠️ MetaMask not found.";
     }
   }
 
+  connectWallet();
+
   function sha256(buffer) {
     const crypto = window.crypto || window.msCrypto;
-    const digest = crypto.subtle.digest("SHA-256", buffer);
-    return digest.then(hash => {
+    return crypto.subtle.digest("SHA-256", buffer).then(hash => {
       let hex = "";
       const view = new DataView(hash);
       for (let i = 0; i < view.byteLength; i += 4) {
@@ -122,19 +169,15 @@
   }
 
   async function generateHashFromPDF() {
-    const fileInput = document.getElementById("pdfInput");
-    const file = fileInput.files[0];
-    if (!file) return alert("Please upload a PDF file.");
-
+    const file = document.getElementById("pdfInput").files[0];
+    if (!file) return alert("Please upload a PDF.");
     const reader = new FileReader();
-    reader.onload = async function(event) {
+    reader.onload = async function (event) {
       const arrayBuffer = event.target.result;
       const hashHex = await sha256(arrayBuffer);
       generatedHash = "0x" + hashHex;
       document.getElementById("certHash").value = generatedHash;
-
-      // Generate QR code
-      QRCode.toCanvas(document.getElementById("qrCode"), generatedHash, function (error) {
+      QRCode.toCanvas(document.getElementById("qrCode"), generatedHash, error => {
         if (error) console.error(error);
         document.getElementById("qrShareOptions").style.display = "block";
       });
@@ -153,13 +196,13 @@
   function copyQRLink() {
     if (!generatedHash) return alert("No QR code generated yet.");
     navigator.clipboard.writeText(generatedHash).then(() => {
-      alert("QR content copied to clipboard!");
+      alert("Hash copied to clipboard!");
     });
   }
 
   function openQRInTab() {
     if (!generatedHash) return alert("No QR code generated yet.");
-    QRCode.toDataURL(generatedHash, function (err, url) {
+    QRCode.toDataURL(generatedHash, (err, url) => {
       const win = window.open();
       win.document.write(`<img src="${url}" alt="QR Code">`);
     });
@@ -167,17 +210,47 @@
 
   function shareQR() {
     if (!generatedHash) return alert("No QR code generated yet.");
-    const shareText = "Scan this QR code to verify the certificate:\n" + generatedHash;
+    const shareText = "Verify this certificate using this hash: " + generatedHash;
     if (navigator.share) {
       navigator.share({
-        title: "Certificate Verification",
+        title: "Certificate QR",
         text: shareText,
         url: window.location.href
-      }).catch((err) => {
-        alert("Share cancelled or failed.");
       });
     } else {
-      alert("Sharing not supported on this browser.");
+      alert("Sharing not supported.");
+    }
+  }
+
+  async function issueCertificate() {
+    if (!generatedHash) return alert("Generate certificate hash first.");
+    try {
+      await contract.methods.issueCertificate(generatedHash).send({ from: accounts[0] });
+      document.getElementById("statusMessage").innerText = "✅ Certificate issued successfully!";
+    } catch (err) {
+      document.getElementById("statusMessage").innerText = "❌ Error issuing certificate.";
+    }
+  }
+
+  async function verifyCertificate() {
+    if (!generatedHash) return alert("Generate certificate hash first.");
+    try {
+      const result = await contract.methods.verifyCertificate(generatedHash).call();
+      document.getElementById("statusMessage").innerText = result
+        ? "✅ Certificate is VALID!"
+        : "❌ Certificate is INVALID!";
+    } catch (err) {
+      document.getElementById("statusMessage").innerText = "❌ Verification failed.";
+    }
+  }
+
+  async function revokeCertificate() {
+    if (!generatedHash) return alert("Generate certificate hash first.");
+    try {
+      await contract.methods.revokeCertificate(generatedHash).send({ from: accounts[0] });
+      document.getElementById("statusMessage").innerText = "⚠️ Certificate revoked.";
+    } catch (err) {
+      document.getElementById("statusMessage").innerText = "❌ Error revoking certificate.";
     }
   }
 </script>
