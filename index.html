@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Certificate Registry DApp</title>
   <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
   <style>
@@ -9,170 +9,187 @@
       background: linear-gradient(to right, #00c6ff, #0072ff);
       font-family: 'Segoe UI', sans-serif;
       text-align: center;
-      padding-top: 50px;
-    }
-
-    .container {
-      background: #28c8f2;
-      padding: 30px;
-      border-radius: 20px;
-      display: inline-block;
-      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      margin: 0;
+      padding: 0;
     }
 
     h1 {
       color: white;
+      margin-top: 20px;
+      margin-bottom: 10px;
+      font-size: 36px;
+    }
+
+    #connectButton {
+      background-color: #ffdf45;
+      border: none;
+      padding: 12px 20px;
+      font-size: 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
       margin-bottom: 30px;
     }
 
-    input[type="file"],
-    input[type="text"] {
-      padding: 10px;
+    #connectButton:hover {
+      background-color: #ffe769;
+    }
+
+    .container {
+      background-color: #29b6f6;
+      border-radius: 16px;
+      padding: 40px;
+      margin: auto;
+      width: 50%;
+      max-width: 600px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    }
+
+    input[type="file"], input[type="text"] {
       margin: 10px 0;
-      width: 80%;
-      border-radius: 10px;
+      padding: 12px;
+      width: 90%;
+      border-radius: 8px;
       border: none;
+      font-size: 16px;
     }
 
     button {
-      display: block;
-      background-color: #ffdf45;
+      width: 95%;
+      margin: 10px 0;
+      padding: 15px;
       border: none;
-      padding: 15px 20px;
-      margin: 10px auto;
-      border-radius: 12px;
-      font-size: 16px;
-      width: 80%;
+      border-radius: 10px;
+      font-size: 18px;
+      background-color: #ffdf45;
       cursor: pointer;
-      transition: background-color 0.3s ease;
+      transition: background-color 0.3s;
     }
 
     button:hover {
       background-color: #ffe769;
     }
 
-    .status-bar {
-      margin-top: 25px;
-      padding: 12px;
-      background-color: white;
-      border-radius: 12px;
-      font-weight: bold;
-      color: #222;
+    #issuedList {
+      background: white;
+      margin-top: 20px;
+      border-radius: 10px;
+      padding: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 14px;
+      text-align: left;
     }
 
-    .status-success { color: green; }
-    .status-error { color: red; }
-    .status-info { color: #0072ff; }
+    .hash-item {
+      margin: 5px 0;
+      word-break: break-all;
+      padding: 4px;
+    }
+
+    #status {
+      color: white;
+      margin: 10px;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
-
-  <h1 style="text-align:left; margin-left: 20px;">Certificate Registry DApp</h1>
-
-  <div style="text-align: right; margin: -40px 20px 20px 0;">
-    <button id="connectButton" style="background-color: #ffdf45;">🔗 Connect Wallet</button>
-  </div>
+  <h1>Certificate Registry DApp</h1>
+  <button id="connectButton">🔗 Connect Wallet</button>
+  <div id="status">🔌 Wallet not connected</div>
 
   <div class="container">
-    <input type="file" id="pdfFile" accept=".pdf">
+    <input type="file" id="fileInput" accept=".pdf" />
     <button onclick="generateHash()">📄 Generate Hash from PDF</button>
-
     <input type="text" id="hashInput" placeholder="Certificate Hash" />
+    <button onclick="issueCert()">✅ Issue Certificate</button>
+    <button onclick="revokeCert()">❌ Revoke Certificate</button>
+    <button onclick="verifyCert()">🔍 Verify Certificate</button>
 
-    <button onclick="issueCertificate()">✅ Issue Certificate</button>
-    <button onclick="revokeCertificate()">❌ Revoke Certificate</button>
-    <button onclick="verifyCertificate()">🔍 Verify Certificate</button>
-
-    <div id="status" class="status-bar">Status: 🔄 Waiting for action…</div>
+    <div id="issuedList">
+      <strong>📝 Issued Hashes:</strong>
+      <div id="hashes"></div>
+    </div>
   </div>
 
   <script>
     let web3;
+    let account;
+    const contractAddress = "0x8df5b74f5aA6DF84870e9A29ED0569008A6a3733";
+    const abi = [/* Contract ABI here */];
     let contract;
-    let accounts;
-
-    const contractAddress = "0x8df5b74f5aA6DF84870e9A29ED0569008A6a3733"; // Replace with your actual address
-    const contractABI = [/* paste your ABI here */];
 
     async function connectWallet() {
-      if (window.ethereum) {
-        web3 = new Web3(window.ethereum);
+      if (typeof window.ethereum !== 'undefined') {
         try {
-          accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-          contract = new web3.eth.Contract(contractABI, contractAddress);
-          updateStatus("✅ Wallet Connected: " + accounts[0], "status-success");
+          web3 = new Web3(window.ethereum);
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
+          const accounts = await web3.eth.getAccounts();
+          account = accounts[0];
+          contract = new web3.eth.Contract(abi, contractAddress);
+          document.getElementById("connectButton").innerText = "✅ Wallet Connected";
+          document.getElementById("status").innerText = `🟢 Connected: ${account}`;
         } catch (error) {
-          updateStatus("❌ Connection rejected", "status-error");
+          document.getElementById("status").innerText = "❌ Connection failed";
+          alert("Connection to wallet failed");
         }
       } else {
-        updateStatus("❌ MetaMask not detected", "status-error");
+        alert("Please install MetaMask!");
+        document.getElementById("status").innerText = "❌ MetaMask not found";
       }
     }
 
     async function generateHash() {
-      const fileInput = document.getElementById('pdfFile');
-      const file = fileInput.files[0];
-      if (!file) return updateStatus("❌ No file selected", "status-error");
-
-      const reader = new FileReader();
-      reader.onload = async function (event) {
-        const hashBuffer = await crypto.subtle.digest('SHA-256', event.target.result);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        const hashHex = '0x' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        document.getElementById('hashInput').value = hashHex;
-        updateStatus("✅ Hash generated", "status-success");
-      };
-      reader.readAsArrayBuffer(file);
+      const file = document.getElementById("fileInput").files[0];
+      if (!file) return alert("Please select a file");
+      const arrayBuffer = await file.arrayBuffer();
+      const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = "0x" + hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+      document.getElementById("hashInput").value = hashHex;
     }
 
-    async function issueCertificate() {
-      const hash = document.getElementById('hashInput').value;
-      if (!hash) return updateStatus("❌ Enter a hash first", "status-error");
-      updateStatus("⏳ Issuing certificate…", "status-info");
+    async function issueCert() {
+      const hash = document.getElementById("hashInput").value;
       try {
-        await contract.methods.issueCertificate(hash).send({ from: accounts[0] });
-        updateStatus("✅ Certificate issued successfully", "status-success");
-      } catch (err) {
-        updateStatus("❌ Error issuing certificate", "status-error");
+        await contract.methods.issueCertificate(hash).send({ from: account });
+        addToIssuedList(hash);
+        alert("✅ Certificate Issued!");
+      } catch (e) {
+        alert("❌ Error issuing certificate");
       }
     }
 
-    async function revokeCertificate() {
-      const hash = document.getElementById('hashInput').value;
-      if (!hash) return updateStatus("❌ Enter a hash first", "status-error");
-      updateStatus("⏳ Revoking certificate…", "status-info");
+    async function revokeCert() {
+      const hash = document.getElementById("hashInput").value;
       try {
-        await contract.methods.revokeCertificate(hash).send({ from: accounts[0] });
-        updateStatus("✅ Certificate revoked successfully", "status-success");
-      } catch (err) {
-        updateStatus("❌ Error revoking certificate", "status-error");
+        await contract.methods.revokeCertificate(hash).send({ from: account });
+        alert("❌ Certificate Revoked");
+      } catch (e) {
+        alert("⚠️ Error revoking certificate");
       }
     }
 
-    async function verifyCertificate() {
-      const hash = document.getElementById('hashInput').value;
-      if (!hash) return updateStatus("❌ Enter a hash first", "status-error");
-      updateStatus("⏳ Verifying certificate…", "status-info");
+    async function verifyCert() {
+      const hash = document.getElementById("hashInput").value;
       try {
-        const result = await contract.methods.verifyCertificate(hash).call();
-        if (result) {
-          updateStatus("✅ Certificate is valid", "status-success");
-        } else {
-          updateStatus("❌ Certificate is invalid or revoked", "status-error");
-        }
-      } catch (err) {
-        updateStatus("❌ Error verifying certificate", "status-error");
+        const isValid = await contract.methods.verifyCertificate(hash).call();
+        alert(isValid ? "✅ Certificate is valid" : "❌ Certificate is not valid");
+      } catch (e) {
+        alert("⚠️ Error verifying certificate");
       }
     }
 
-    function updateStatus(message, className) {
-      const statusEl = document.getElementById('status');
-      statusEl.textContent = "Status: " + message;
-      statusEl.className = `status-bar ${className}`;
+    function addToIssuedList(hash) {
+      const list = document.getElementById("hashes");
+      const item = document.createElement("div");
+      item.className = "hash-item";
+      item.innerText = hash;
+      list.prepend(item);
     }
 
-    document.getElementById("connectButton").addEventListener("click", connectWallet);
+    document.getElementById("connectButton").onclick = connectWallet;
   </script>
-
 </body>
 </html>
