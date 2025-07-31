@@ -101,134 +101,38 @@
 
   <script>
     let provider, signer, contract;
+
     const contractAddress = "0x04F593787D3E04Fc38E03450A0f56e314e4C6592";
+
     const contractABI = [
-       [
-	{
-		"inputs": [],
-		"stateMutability": "nonpayable",
-		"type": "constructor"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": false,
-				"internalType": "bytes32",
-				"name": "certHash",
-				"type": "bytes32"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "issuer",
-				"type": "address"
-			}
-		],
-		"name": "CertificateIssued",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": false,
-				"internalType": "bytes32",
-				"name": "certHash",
-				"type": "bytes32"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "revoker",
-				"type": "address"
-			}
-		],
-		"name": "CertificateRevoked",
-		"type": "event"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "certHash",
-				"type": "bytes32"
-			}
-		],
-		"name": "issueCertificate",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "certHash",
-				"type": "bytes32"
-			}
-		],
-		"name": "revokeCertificate",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "owner",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "",
-				"type": "bytes32"
-			}
-		],
-		"name": "validCertificates",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "certHash",
-				"type": "bytes32"
-			}
-		],
-		"name": "verifyCertificate",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	}
-] }
+      { "inputs": [], "stateMutability": "nonpayable", "type": "constructor" },
+      { "anonymous": false, "inputs": [
+          { "indexed": false, "internalType": "bytes32", "name": "certHash", "type": "bytes32" },
+          { "indexed": true, "internalType": "address", "name": "issuer", "type": "address" }
+        ], "name": "CertificateIssued", "type": "event" },
+      { "anonymous": false, "inputs": [
+          { "indexed": false, "internalType": "bytes32", "name": "certHash", "type": "bytes32" },
+          { "indexed": true, "internalType": "address", "name": "revoker", "type": "address" }
+        ], "name": "CertificateRevoked", "type": "event" },
+      { "inputs": [{ "internalType": "bytes32", "name": "certHash", "type": "bytes32" }],
+        "name": "issueCertificate", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+      { "inputs": [{ "internalType": "bytes32", "name": "certHash", "type": "bytes32" }],
+        "name": "revokeCertificate", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+      { "inputs": [], "name": "owner", "outputs": [
+          { "internalType": "address", "name": "", "type": "address" }
+        ], "stateMutability": "view", "type": "function" },
+      { "inputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+        "name": "validCertificates", "outputs": [
+          { "internalType": "bool", "name": "", "type": "bool" }
+        ], "stateMutability": "view", "type": "function" },
+      { "inputs": [{ "internalType": "bytes32", "name": "certHash", "type": "bytes32" }],
+        "name": "verifyCertificate", "outputs": [
+          { "internalType": "bool", "name": "", "type": "bool" }
+        ], "stateMutability": "view", "type": "function" }
     ];
 
     async function connectWallet() {
-      if (!window.ethereum) return alert("MetaMask not found");
+      if (!window.ethereum) return alert("MetaMask not found.");
       provider = new ethers.providers.Web3Provider(window.ethereum);
       await provider.send("eth_requestAccounts", []);
       signer = provider.getSigner();
@@ -238,9 +142,7 @@
     }
 
     async function ensureContractConnected() {
-      if (!contract) {
-        await connectWallet();
-      }
+      if (!contract) await connectWallet();
     }
 
     async function generateHashFromPDF() {
@@ -265,7 +167,7 @@
       if (!hash) return alert("Generate or enter a hash");
       const tx = await contract.issueCertificate(hash);
       await tx.wait();
-      document.getElementById("status").innerText = "Certificate Issued ✅";
+      document.getElementById("status").innerText = "✅ Certificate Issued";
     }
 
     async function revokeCert() {
@@ -274,7 +176,7 @@
       if (!hash) return alert("Generate or enter a hash");
       const tx = await contract.revokeCertificate(hash);
       await tx.wait();
-      document.getElementById("status").innerText = "Certificate Revoked ❌";
+      document.getElementById("status").innerText = "❌ Certificate Revoked";
     }
 
     async function verifyCert() {
@@ -282,7 +184,7 @@
       const hash = document.getElementById("certHash").value;
       if (!hash) return alert("Enter hash to verify");
       const valid = await contract.verifyCertificate(hash);
-      document.getElementById("status").innerText = valid ? "VALID ✅" : "INVALID ❌";
+      document.getElementById("status").innerText = valid ? "🟢 VALID Certificate" : "🔴 INVALID Certificate";
     }
 
     function downloadQR() {
