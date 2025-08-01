@@ -5,962 +5,166 @@
   <title>Certificate Registry DApp</title>
   <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    * {
+    body {
+      background: linear-gradient(to right, #00c6ff, #0072ff);
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
       margin: 0;
       padding: 0;
-      box-sizing: border-box;
     }
-
-    :root {
-      --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-      --accent-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-      --success-gradient: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-      --danger-gradient: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
-      --glass-bg: rgba(255, 255, 255, 0.1);
-      --glass-border: rgba(255, 255, 255, 0.2);
-      --text-primary: #1a202c;
-      --text-secondary: #4a5568;
-      --shadow-light: 0 8px 32px rgba(31, 38, 135, 0.37);
-      --shadow-heavy: 0 20px 60px rgba(0, 0, 0, 0.1);
-    }
-
-    body {
-      background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
-      background-size: 400% 400%;
-      animation: gradientShift 15s ease infinite;
-      font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
-      min-height: 100vh;
-      padding: 20px;
-      color: var(--text-primary);
-      overflow-x: hidden;
-    }
-
-    @keyframes gradientShift {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
-    }
-
-    .floating-shapes {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: -1;
-    }
-
-    .shape {
-      position: absolute;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 50%;
-      animation: float 20s infinite linear;
-    }
-
-    .shape:nth-child(1) {
-      width: 80px;
-      height: 80px;
-      left: 10%;
-      animation-delay: 0s;
-    }
-
-    .shape:nth-child(2) {
-      width: 120px;
-      height: 120px;
-      left: 20%;
-      animation-delay: 2s;
-    }
-
-    .shape:nth-child(3) {
-      width: 60px;
-      height: 60px;
-      left: 70%;
-      animation-delay: 4s;
-    }
-
-    .shape:nth-child(4) {
-      width: 100px;
-      height: 100px;
-      left: 80%;
-      animation-delay: 6s;
-    }
-
-    @keyframes float {
-      0% {
-        transform: translateY(100vh) rotate(0deg);
-        opacity: 0;
-      }
-      10% {
-        opacity: 1;
-      }
-      90% {
-        opacity: 1;
-      }
-      100% {
-        transform: translateY(-100px) rotate(360deg);
-        opacity: 0;
-      }
-    }
-
-    .header {
-      text-align: center;
-      margin-bottom: 60px;
-      position: relative;
-    }
-
-    .logo-container {
-      display: inline-block;
-      position: relative;
-      margin-bottom: 20px;
-    }
-
-    .logo-ring {
-      width: 120px;
-      height: 120px;
-      border: 3px solid rgba(255, 255, 255, 0.3);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto;
-      position: relative;
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(20px);
-      animation: pulse 3s ease-in-out infinite;
-    }
-
-    .logo-ring::before {
-      content: '';
-      position: absolute;
-      top: -5px;
-      left: -5px;
-      right: -5px;
-      bottom: -5px;
-      border-radius: 50%;
-      background: var(--primary-gradient);
-      z-index: -1;
-      animation: rotate 10s linear infinite;
-    }
-
-    .logo-ring::after {
-      content: '🏆';
-      font-size: 48px;
-      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
-    }
-
-    @keyframes pulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.05); }
-    }
-
-    @keyframes rotate {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
-
-    h1 {
-      color: white;
-      font-size: 48px;
-      font-weight: 700;
-      margin-bottom: 16px;
-      text-shadow: 0 4px 20px rgba(0,0,0,0.3);
-      letter-spacing: -1px;
-      background: linear-gradient(135deg, #fff, #f0f9ff);
-      background-clip: text;
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      animation: textShine 3s ease-in-out infinite;
-    }
-
-    @keyframes textShine {
-      0%, 100% { filter: brightness(1); }
-      50% { filter: brightness(1.2); }
-    }
-
-    .subtitle {
-      color: rgba(255,255,255,0.9);
-      font-size: 20px;
-      font-weight: 300;
-      margin-bottom: 40px;
-      text-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    }
-
-    #connectButton {
-      background: var(--accent-gradient);
-      border: none;
-      padding: 18px 40px;
-      font-size: 18px;
-      font-weight: 600;
-      border-radius: 50px;
-      cursor: pointer;
-      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      color: white;
-      box-shadow: 0 8px 25px rgba(79, 172, 254, 0.4);
-      backdrop-filter: blur(10px);
-      position: relative;
-      overflow: hidden;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    #connectButton::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-      transition: left 0.5s;
-    }
-
-    #connectButton:hover::before {
-      left: 100%;
-    }
-
-    #connectButton:hover {
-      transform: translateY(-4px) scale(1.05);
-      box-shadow: 0 15px 40px rgba(79, 172, 254, 0.6);
-    }
-
-    #status {
-      color: white;
-      margin: 20px 0;
-      font-weight: 500;
-      font-size: 16px;
-      padding: 16px 32px;
-      background: var(--glass-bg);
-      border-radius: 50px;
-      backdrop-filter: blur(20px);
-      border: 1px solid var(--glass-border);
-      display: inline-block;
-      box-shadow: var(--shadow-light);
-      transition: all 0.3s ease;
-    }
-
-    .main-container {
-      max-width: 1400px;
-      margin: 0 auto;
-    }
-
-    .container {
-      background: var(--glass-bg);
-      backdrop-filter: blur(40px);
-      border-radius: 32px;
-      padding: 60px;
-      box-shadow: var(--shadow-heavy);
-      border: 1px solid var(--glass-border);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .container::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: var(--primary-gradient);
-      animation: shimmer 3s ease-in-out infinite;
-    }
-
-    @keyframes shimmer {
-      0%, 100% { opacity: 0.5; }
-      50% { opacity: 1; }
-    }
-
-    .card-header {
-      text-align: center;
-      margin-bottom: 50px;
-      position: relative;
-    }
-
-    .card-header h2 {
-      font-size: 36px;
-      font-weight: 700;
-      color: white;
-      margin-bottom: 12px;
-      text-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    }
-
-    .card-header p {
-      color: rgba(255,255,255,0.8);
-      font-size: 18px;
-      font-weight: 300;
-    }
-
-    .form-section {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 50px;
-      margin-bottom: 50px;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      position: relative;
-    }
-
-    .form-group label {
-      font-weight: 600;
-      font-size: 14px;
-      color: rgba(255,255,255,0.9);
-      margin-bottom: 12px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    input[type="text"] {
-      margin: 0;
-      padding: 20px 24px;
-      border-radius: 16px;
-      border: 2px solid rgba(255,255,255,0.2);
-      font-size: 16px;
-      font-family: inherit;
-      transition: all 0.3s ease;
-      background: rgba(255,255,255,0.1);
-      backdrop-filter: blur(10px);
-      color: white;
-      font-weight: 500;
-    }
-
-    input[type="text"]::placeholder {
-      color: rgba(255,255,255,0.6);
-    }
-
-    input[type="text"]:focus {
-      outline: none;
-      border-color: #4facfe;
-      box-shadow: 0 0 0 4px rgba(79, 172, 254, 0.2);
-      background: rgba(255,255,255,0.15);
-    }
-
-    .file-upload-wrapper {
-      position: relative;
-      display: block;
-      width: 100%;
-    }
-
-    .file-upload-label {
-      display: block;
-      padding: 40px 24px;
-      background: rgba(255,255,255,0.1);
-      backdrop-filter: blur(10px);
-      border: 2px dashed rgba(255,255,255,0.3);
-      border-radius: 16px;
-      cursor: pointer;
-      text-align: center;
-      transition: all 0.3s ease;
-      color: rgba(255,255,255,0.9);
-      font-weight: 500;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .file-upload-label::before {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 0;
-      height: 0;
-      background: radial-gradient(circle, rgba(79, 172, 254, 0.3) 0%, transparent 70%);
-      border-radius: 50%;
-      transition: all 0.6s ease;
-      transform: translate(-50%, -50%);
-    }
-
-    .file-upload-label:hover::before {
-      width: 300px;
-      height: 300px;
-    }
-
-    .file-upload-label:hover {
-      border-color: #4facfe;
-      background: rgba(79, 172, 254, 0.1);
-      transform: translateY(-2px);
-      box-shadow: 0 10px 30px rgba(79, 172, 254, 0.3);
-    }
-
-    input[type="file"] {
-      position: absolute;
-      opacity: 0;
-      width: 100%;
-      height: 100%;
-      cursor: pointer;
-    }
-
-    .button-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 20px;
-      margin-bottom: 50px;
-    }
-
-    button {
-      padding: 20px 32px;
-      border: none;
-      border-radius: 16px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      font-family: inherit;
-      position: relative;
-      overflow: hidden;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    button::after {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 0;
-      height: 0;
-      background: rgba(255,255,255,0.2);
-      border-radius: 50%;
-      transform: translate(-50%, -50%);
-      transition: all 0.6s ease;
-    }
-
-    button:hover::after {
-      width: 200px;
-      height: 200px;
-    }
-
-    button:hover {
-      transform: translateY(-4px) scale(1.02);
-    }
-
-    button:active {
-      transform: translateY(-2px) scale(1.01);
-    }
-
-    .btn-primary {
-      background: var(--primary-gradient);
-      color: white;
-      box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
-    }
-
-    .btn-primary:hover {
-      box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
-    }
-
-    .btn-success {
-      background: var(--success-gradient);
-      color: var(--text-primary);
-      box-shadow: 0 8px 25px rgba(168, 237, 234, 0.4);
-    }
-
-    .btn-success:hover {
-      box-shadow: 0 15px 40px rgba(168, 237, 234, 0.6);
-    }
-
-    .btn-danger {
-      background: var(--danger-gradient);
-      color: var(--text-primary);
-      box-shadow: 0 8px 25px rgba(255, 154, 158, 0.4);
-    }
-
-    .btn-danger:hover {
-      box-shadow: 0 15px 40px rgba(255, 154, 158, 0.6);
-    }
-
-    .btn-secondary {
-      background: rgba(255,255,255,0.2);
-      backdrop-filter: blur(10px);
-      color: white;
-      border: 1px solid rgba(255,255,255,0.3);
-      box-shadow: 0 8px 25px rgba(255,255,255,0.1);
-    }
-
-    .btn-secondary:hover {
-      background: rgba(255,255,255,0.3);
-      box-shadow: 0 15px 40px rgba(255,255,255,0.2);
-    }
-
-    .qr-section {
-      text-align: center;
-      padding: 50px;
-      background: rgba(255,255,255,0.05);
-      backdrop-filter: blur(20px);
-      border-radius: 24px;
-      margin-bottom: 50px;
-      border: 1px solid rgba(255,255,255,0.1);
-      position: relative;
-    }
-
-    .qr-section::before {
-      content: '';
-      position: absolute;
-      top: -2px;
-      left: -2px;
-      right: -2px;
-      bottom: -2px;
-      background: var(--accent-gradient);
-      border-radius: 26px;
-      z-index: -1;
-      opacity: 0.3;
-      animation: pulse 4s ease-in-out infinite;
-    }
-
-    .qr-section h3 {
-      font-size: 24px;
-      font-weight: 600;
-      color: white;
-      margin-bottom: 30px;
-      text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-    }
-
-    canvas {
-      background: white;
-      padding: 25px;
-      border-radius: 20px;
-      box-shadow: 0 15px 35px rgba(0,0,0,0.2);
-      margin-bottom: 30px;
-      border: 1px solid rgba(255,255,255,0.1);
-      transition: all 0.3s ease;
-    }
-
-    canvas:hover {
-      transform: scale(1.05);
-      box-shadow: 0 20px 50px rgba(0,0,0,0.3);
-    }
-
-    .qr-buttons {
-      display: flex;
-      gap: 16px;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-
-    .qr-buttons button {
-      min-width: 160px;
-      font-size: 14px;
-      padding: 16px 24px;
-    }
-
-    #issuedList {
-      background: rgba(255,255,255,0.05);
-      backdrop-filter: blur(20px);
-      border-radius: 20px;
-      padding: 30px;
-      max-height: 350px;
-      overflow-y: auto;
-      font-size: 14px;
-      border: 1px solid rgba(255,255,255,0.1);
-      position: relative;
-    }
-
-    #issuedList::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background: var(--accent-gradient);
-    }
-
-    #issuedList strong {
-      font-size: 18px;
-      font-weight: 600;
-      color: white;
-      display: block;
-      margin-bottom: 20px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    .hash-item {
-      margin: 12px 0;
-      word-break: break-all;
-      padding: 16px 20px;
-      background: rgba(255,255,255,0.1);
-      backdrop-filter: blur(10px);
-      border-radius: 12px;
-      font-family: 'Monaco', 'Menlo', monospace;
-      font-size: 12px;
-      border: 1px solid rgba(255,255,255,0.1);
-      transition: all 0.3s ease;
-      color: rgba(255,255,255,0.9);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .hash-item::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
-      transition: left 0.5s ease;
-    }
-
-    .hash-item:hover::before {
-      left: 100%;
-    }
-
-    .hash-item:hover {
-      border-color: #4facfe;
-      box-shadow: 0 5px 20px rgba(79, 172, 254, 0.3);
-      transform: translateX(5px);
-    }
-
-    .status-indicator {
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .status-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #4ade80;
-      animation: statusPulse 2s infinite;
-      box-shadow: 0 0 10px #4ade80;
-    }
-
-    @keyframes statusPulse {
-      0%, 100% {
-        opacity: 1;
-        transform: scale(1);
-      }
-      50% {
-        opacity: 0.7;
-        transform: scale(1.2);
-      }
-    }
-
-    .notification {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      padding: 16px 24px;
-      border-radius: 12px;
-      color: white;
-      font-weight: 600;
-      z-index: 1000;
-      transform: translateX(400px);
-      transition: transform 0.3s ease;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-    }
-
-    .notification.show {
-      transform: translateX(0);
-    }
-
-    .notification.success {
-      background: var(--success-gradient);
-      color: var(--text-primary);
-    }
-
-    .notification.error {
-      background: var(--danger-gradient);
-      color: var(--text-primary);
-    }
-
-    .notification.info {
-      background: var(--accent-gradient);
-    }
-
-    .loading {
-      position: relative;
-    }
-
-    .loading::after {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 20px;
-      height: 20px;
-      margin: -10px 0 0 -10px;
-      border: 2px solid transparent;
-      border-top: 2px solid white;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    /* Responsive Design */
-    @media (max-width: 1024px) {
-      .form-section {
-        grid-template-columns: 1fr;
-        gap: 30px;
-      }
-     
-      .container {
-        padding: 40px;
-      }
-     
-      h1 {
-        font-size: 40px;
-      }
-    }
-
-    @media (max-width: 768px) {
-      .container {
-        padding: 30px;
-        margin: 10px;
-      }
-     
-      .button-grid {
-        grid-template-columns: 1fr;
-      }
-     
-      .qr-buttons {
-        flex-direction: column;
-        align-items: center;
-      }
-     
-      h1 {
-        font-size: 32px;
-      }
-     
-      .card-header h2 {
-        font-size: 28px;
-      }
-    }
-
-    /* Custom Scrollbar */
-    #issuedList::-webkit-scrollbar {
-      width: 8px;
-    }
-
-    #issuedList::-webkit-scrollbar-track {
-      background: rgba(255,255,255,0.1);
-      border-radius: 4px;
-    }
-
-    #issuedList::-webkit-scrollbar-thumb {
-      background: var(--accent-gradient);
-      border-radius: 4px;
-    }
-
-    #issuedList::-webkit-scrollbar-thumb:hover {
-      background: var(--primary-gradient);
-    }
+    h1 { color: white; margin-top: 20px; font-size: 36px; }
+    #connectButton { background-color: #ffdf45; border: none; padding: 12px 20px; font-size: 16px; border-radius: 12px; cursor: pointer; transition: background-color 0.3s ease; margin-top: 10px; }
+    #connectButton:hover { background-color: #ffe769; }
+    #status { color: white; margin: 5px 0 15px; font-weight: bold; }
+    .container { background-color: #29b6f6; border-radius: 16px; padding: 40px; margin: auto; width: 60%; max-width: 700px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+    input[type="file"], input[type="text"] { margin: 10px 0; padding: 12px; width: 90%; border-radius: 8px; border: none; font-size: 16px; }
+    button { width: 97%; margin: 10px auto; padding: 16px; border: none; border-radius: 10px; font-size: 18px; background-color: #ffdf45; cursor: pointer; transition: background-color 0.3s; }
+    button:hover { background-color: #ffe769; }
+    #issuedList { background: white; margin-top: 20px; border-radius: 10px; padding: 10px; max-height: 250px; overflow-y: auto; font-size: 14px; text-align: left; }
+    .hash-item { margin: 5px 0; word-break: break-all; padding: 4px; }
+    .qr-section { margin-top: 20px; }
+    canvas { background: white; padding: 10px; border-radius: 10px; }
   </style>
 </head>
 <body>
-  <div class="floating-shapes">
-    <div class="shape"></div>
-    <div class="shape"></div>
-    <div class="shape"></div>
-    <div class="shape"></div>
-  </div>
+  <h1>Certificate Registry DApp</h1>
+  <button id="connectButton">🔗 Connect Wallet</button>
+  <div id="status">🔌 Wallet not connected</div>
 
-  <div class="main-container">
-    <div class="header">
-      <div class="logo-container">
-        <div class="logo-ring"></div>
-      </div>
-      <h1>CERTIFICATE REGISTRY</h1>
-      <p class="subtitle">Next-Generation Blockchain Certificate Management System</p>
-      <button id="connectButton">🔗 Connect Wallet</button>
-      <div id="status">🔌 Wallet not connected</div>
+  <div class="container">
+    <input type="file" id="fileInput" accept=".pdf" />
+    <button onclick="generateHash()">📄 Generate Hash from PDF</button>
+    <input type="text" id="hashInput" placeholder="Certificate Hash" />
+    <button onclick="issueCert()">✅ Issue Certificate</button>
+    <button onclick="revokeCert()">❌ Revoke Certificate</button>
+    <button onclick="verifyCert()">🔍 Verify Certificate</button>
+
+    <div class="qr-section">
+      <canvas id="qrCanvas"></canvas><br>
+      <button onclick="copyLink()">📋 Copy Link</button>
+      <button onclick="downloadQR()">⬇️ Download QR</button>
+      <button onclick="shareQR()">📤 Share QR</button>
     </div>
 
-    <div class="container">
-      <div class="card-header">
-        <h2>Certificate Management Hub</h2>
-        <p>Issue, verify, and manage certificates with cutting-edge blockchain technology</p>
-      </div>
-
-      <div class="form-section">
-        <div class="form-group">
-          <label>📄 Upload Certificate Document</label>
-          <div class="file-upload-wrapper">
-            <input type="file" id="fileInput" accept=".pdf" />
-            <label for="fileInput" class="file-upload-label">
-              <div style="position: relative; z-index: 2;">
-                <div style="font-size: 48px; margin-bottom: 16px;">📄</div>
-                <div style="font-size: 16px; font-weight: 600;">Drop PDF file here or click to browse</div>
-                <div style="font-size: 14px; opacity: 0.7; margin-top: 8px;">Supports PDF files up to 10MB</div>
-              </div>
-            </label>
-          </div>
-        </div>
-       
-        <div class="form-group">
-          <label>🔐 Certificate Hash</label>
-          <input type="text" id="hashInput" placeholder="Generated hash will appear here..." />
-        </div>
-      </div>
-
-      <div class="button-grid">
-        <button class="btn-primary" id="generateBtn">🎯 Generate Hash from PDF</button>
-        <button class="btn-success" id="issueBtn">✅ Issue Certificate</button>
-        <button class="btn-danger" id="revokeBtn">❌ Revoke Certificate</button>
-        <button class="btn-secondary" id="verifyBtn">🔍 Verify Certificate</button>
-      </div>
-
-      <div class="qr-section">
-        <h3>🚀 Certificate QR Code</h3>
-        <canvas id="qrCanvas"></canvas>
-        <div class="qr-buttons">
-          <button class="btn-secondary" id="copyBtn">📋 Copy Link</button>
-          <button class="btn-secondary" id="downloadBtn">⬇️ Download QR</button>
-          <button class="btn-secondary" id="shareBtn">📤 Share QR</button>
-        </div>
-      </div>
-
-      <div id="issuedList">
-        <strong>🏆 Recently Issued Certificates</strong>
-        <div id="hashes"></div>
-      </div>
+    <div id="issuedList">
+      <strong>📝 Issued Hashes:</strong>
+      <div id="hashes"></div>
     </div>
   </div>
 
   <script>
     let web3, account, contract;
-    let issuedCertificates = [];
-    
-    // Contract configuration
-    const contractAddress = "0x314621b90001Ca2ECeC02534cD228fDdAAA63523";
-    const abi = [
-      {
-        "inputs": [],
-        "stateMutability": "nonpayable",
-        "type": "constructor"
-      },
-      {
-        "anonymous": false,
-        "inputs": [
-          {
-            "indexed": false,
-            "internalType": "bytes32",
-            "name": "certHash",
-            "type": "bytes32"
-          },
-          {
-            "indexed": true,
-            "internalType": "address",
-            "name": "issuer",
-            "type": "address"
-          }
-        ],
-        "name": "CertificateIssued",
-        "type": "event"
-      },
-      {
-        "anonymous": false,
-        "inputs": [
-          {
-            "indexed": false,
-            "internalType": "bytes32",
-            "name": "certHash",
-            "type": "bytes32"
-          },
-          {
-            "indexed": true,
-            "internalType": "address",
-            "name": "revoker",
-            "type": "address"
-          }
-        ],
-        "name": "CertificateRevoked",
-        "type": "event"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "bytes32",
-            "name": "certHash",
-            "type": "bytes32"
-          }
-        ],
-        "name": "issueCertificate",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "bytes32",
-            "name": "certHash",
-            "type": "bytes32"
-          }
-        ],
-        "name": "revokeCertificate",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-      },
-      {
-        "inputs": [],
-        "name": "owner",
-        "outputs": [
-          {
-            "internalType": "address",
-            "name": "",
-            "type": "address"
-          }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "bytes32",
-            "name": "",
-            "type": "bytes32"
-          }
-        ],
-        "name": "validCertificates",
-        "outputs": [
-          {
-            "internalType": "bool",
-            "name": "",
-            "type": "bool"
-          }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "bytes32",
-            "name": "certHash",
-            "type": "bytes32"
-          }
-        ],
-        "name": "verifyCertificate",
-        "outputs": [
-          {
-            "internalType": "bool",
-            "name": "",
-            "type": "bool"
-          }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-      }
-    ];
+    const contractAddress = "0x8df5b74f5aA6DF84870e9A29ED0569008A6a3733";
+    const abi = [ { "inputs": [{ "internalType": "bytes32", "name": "certHash", "type": "bytes32" }], "name": "issueCertificate", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "bytes32", "name": "certHash", "type": "bytes32" }], "name": "revokeCertificate", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "bytes32", "name": "certHash", "type": "bytes32" }], "name": "verifyCertificate", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" } ];
 
-    // Utility Functions
-    function formatTimestamp(timestamp) {
-      const date = new Date(timestamp);
-      return date.toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2
+    async function connectWallet() {
+      if (window.ethereum) {
+        try {
+          web3 = new Web3(window.ethereum);
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
+          const accounts = await web3.eth.getAccounts();
+          account = accounts[0];
+          contract = new web3.eth.Contract(abi, contractAddress);
+          document.getElementById("connectButton").innerText = "✅ Wallet Connected";
+          document.getElementById("status").innerText = `🟢 Connected: ${account}`;
+        } catch (e) {
+          alert("Connection failed: " + e.message);
+        }
+      } else {
+        alert("Please install MetaMask");
+      }
+    }
+
+    async function generateHash() {
+      const file = document.getElementById("fileInput").files[0];
+      if (!file) return alert("Please select a file");
+      const arrayBuffer = await file.arrayBuffer();
+      const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = "0x" + hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+      document.getElementById("hashInput").value = hashHex;
+      generateQRCode(hashHex);
+    }
+
+    function generateQRCode(text) {
+      QRCode.toCanvas(document.getElementById("qrCanvas"), text, { width: 200 }, function (error) {
+        if (error) console.error(error);
+      });
+    }
+
+    async function issueCert() {
+      const hash = document.getElementById("hashInput").value;
+      if (!hash) return alert("Please enter a certificate hash");
+      try {
+        await contract.methods.issueCertificate(hash).send({ from: account });
+        addToIssuedList(hash);
+        generateQRCode(hash);
+        alert("✅ Certificate Issued!");
+      } catch (e) {
+        alert("❌ Error issuing certificate: " + e.message);
+      }
+    }
+
+    async function revokeCert() {
+      const hash = document.getElementById("hashInput").value;
+      if (!hash) return alert("Please enter a certificate hash");
+      try {
+        await contract.methods.revokeCertificate(hash).send({ from: account });
+        alert("❌ Certificate Revoked");
+      } catch (e) {
+        alert("⚠️ Error revoking certificate: " + e.message);
+      }
+    }
+
+    async function verifyCert() {
+      const hash = document.getElementById("hashInput").value;
+      if (!hash) return alert("Please enter a certificate hash");
+      try {
+        const isValid = await contract.methods.verifyCertificate(hash).call();
+        alert(isValid ? "✅ Certificate is valid" : "❌ Certificate is not valid");
+      } catch (e) {
+        alert("⚠️ Error verifying certificate: " + e.message);
+      }
+    }
+
+    function copyLink() {
+      const hash = document.getElementById("hashInput").value;
+      if (!hash) return alert("No hash to copy");
+      const url = window.location.origin + "?certHash=" + hash;
+      navigator.clipboard.writeText(url);
+      alert("📋 Link copied to clipboard");
+    }
+
+    function downloadQR() {
+      const canvas = document.getElementById("qrCanvas");
+      const link = document.createElement('a');
+      link.download = 'certificate_qr.png';
+      link.href = canvas.toDataURL();
+      link.click();
+    }
+
+    async function shareQR() {
+      const canvas = document.getElementById("qrCanvas");
+      canvas.toBlob(async blob => {
+        const file = new File([blob], 'certificate_qr.png', { type: 'image/png' });
+        if (navigator.share) {
+          await navigator.share({ files: [file], title: 'Certificate QR', text: 'Scan to verify certificate' });
+        } else {
+          alert("Sharing not supported on this device");
+        }
+      });
+    }
+
+    function addToIssuedList(hash) {
+      const list = document.getElementById("hashes");
+      const item = document.createElement("div");
+      item.className = "hash-item";
+      item.innerText = hash;
+      list.prepend(item);
+    }
+
+    document.getElementById("connectButton").onclick = connectWallet;
+  </script>
+</body>
+</html>
